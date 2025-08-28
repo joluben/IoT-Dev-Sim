@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: devsim-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./backend/uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=run.py
+    networks:
+      - devsim-network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: devsim-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - devsim-network
+    restart: unless-stopped
+
+networks:
+  devsim-network:
+    driver: bridge
+
+volumes:
+  devsim-data:
+    driver: local
+  devsim-uploads:
+    driver: local

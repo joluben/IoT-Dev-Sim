@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevSim - Simulador de señales de dispositivos</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 DevSim</h1>
+            <p>Gestión de Dispositivos y Conexiones Externas</p>
+            <nav class="main-nav">
+                <button id="nav-devices" class="nav-btn active">📱 Dispositivos</button>
+                <button id="nav-connections" class="nav-btn">🔗 Conexiones</button>
+            </nav>
+        </header>
+
+        <!-- Vista: Lista de Dispositivos -->
+        <div id="devices-list-view" class="view active">
+            <div class="view-header">
+                <h2>Dispositivos</h2>
+                <button id="btn-new-device" class="btn btn-primary">Nuevo Dispositivo</button>
+            </div>
+            
+            <div class="devices-grid" id="devices-grid">
+                <div class="loading" id="devices-loading">Cargando dispositivos...</div>
+            </div>
+        </div>
+
+        <!-- Vista: Crear Dispositivo -->
+        <div id="create-device-view" class="view">
+            <div class="view-header">
+                <h2>Crear Dispositivo</h2>
+                <button id="btn-back-to-list" class="btn btn-secondary">Volver</button>
+            </div>
+            
+            <form id="create-device-form" class="form">
+                <div class="form-group">
+                    <label for="device-name">Nombre *</label>
+                    <input type="text" id="device-name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="device-description">Descripción</label>
+                    <textarea id="device-description" name="description" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Crear Dispositivo</button>
+                    <button type="button" id="btn-cancel-create" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Vista: Detalle Dispositivo -->
+        <div id="device-detail-view" class="view">
+            <div class="view-header">
+                <h2 id="device-detail-title">Dispositivo</h2>
+                <button id="btn-back-from-detail" class="btn btn-secondary">Volver</button>
+            </div>
+            
+            <div class="device-info" id="device-info">
+                <!-- Info del dispositivo se carga dinámicamente -->
+            </div>
+            
+            <!-- Upload CSV -->
+            <div class="upload-section">
+                <h3>Importar CSV</h3>
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <div class="upload-icon">📁</div>
+                        <p>Arrastra tu archivo CSV aquí o <span class="upload-link">selecciona un archivo</span></p>
+                        <input type="file" id="csv-file-input" accept=".csv" hidden>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Previsualización -->
+            <div class="preview-section" id="preview-section" style="display: none;">
+                <h3>Previsualización</h3>
+                <div class="preview-container">
+                    <div class="preview-panel">
+                        <h4>Vista CSV</h4>
+                        <div class="table-container">
+                            <table id="csv-preview-table" class="preview-table">
+                                <!-- Tabla CSV se genera dinámicamente -->
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="preview-panel">
+                        <h4>Vista JSON</h4>
+                        <div class="json-container">
+                            <pre id="json-preview" class="json-preview">
+                                <!-- JSON se genera dinámicamente -->
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-actions">
+                    <button id="btn-save-csv" class="btn btn-primary">Guardar Datos</button>
+                    <button id="btn-send-data" class="btn btn-success" style="display: none;">📤 Enviar a Conexión</button>
+                    <button id="btn-cancel-upload" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista: Lista de Conexiones -->
+        <div id="connections-list-view" class="view">
+            <div class="view-header">
+                <h2>🔗 Conexiones Externas</h2>
+                <button id="btn-new-connection" class="btn btn-primary">Nueva Conexión</button>
+            </div>
+            
+            <div class="connections-grid" id="connections-grid">
+                <div class="loading" id="connections-loading">Cargando conexiones...</div>
+            </div>
+        </div>
+
+        <!-- Vista: Crear/Editar Conexión -->
+        <div id="connection-form-view" class="view">
+            <div class="view-header">
+                <h2 id="connection-form-title">Nueva Conexión</h2>
+                <button id="btn-back-to-connections" class="btn btn-secondary">Volver</button>
+            </div>
+            
+            <form id="connection-form" class="form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="connection-name">Nombre *</label>
+                        <input type="text" id="connection-name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="connection-type">Tipo de Conexión *</label>
+                        <select id="connection-type" name="type" required>
+                            <option value="">Seleccionar tipo...</option>
+                            <option value="MQTT">🔄 MQTT (Mosquitto)</option>
+                            <option value="HTTPS">🌐 HTTPS REST API</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="connection-description">Descripción</label>
+                    <textarea id="connection-description" name="description" rows="2"></textarea>
+                </div>
+                
+                <div class="form-section">
+                    <h3>🌐 Configuración de Servidor</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="connection-host">Host/Servidor *</label>
+                            <input type="text" id="connection-host" name="host" placeholder="ejemplo.com" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="connection-port">Puerto</label>
+                            <input type="number" id="connection-port" name="port" placeholder="1883">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="connection-endpoint">Endpoint/Topic</label>
+                        <input type="text" id="connection-endpoint" name="endpoint" placeholder="/api/data o devices/topic">
+                        <small class="form-help">Para HTTPS: ruta del endpoint. Para MQTT: topic de destino</small>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>🔐 Autenticación</h3>
+                    <div class="form-group">
+                        <label for="auth-type">Tipo de Autenticación *</label>
+                        <select id="auth-type" name="auth_type" required>
+                            <option value="NONE">🔓 Sin Autenticación</option>
+                            <option value="USER_PASS">👤 Usuario y Contraseña</option>
+                            <option value="TOKEN">🎫 Token Bearer</option>
+                            <option value="API_KEY">🔑 API Key</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Campos de autenticación dinámicos -->
+                    <div id="auth-fields"></div>
+                </div>
+                
+                <!-- Configuración avanzada por tipo -->
+                <div id="advanced-config" class="form-section" style="display: none;">
+                    <h3>⚙️ Configuración Avanzada</h3>
+                    <div id="advanced-fields"></div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <span id="connection-submit-text">Crear Conexión</span>
+                    </button>
+                    <button type="button" id="btn-test-connection" class="btn btn-info" disabled>
+                        🧪 Probar Conexión
+                    </button>
+                    <button type="button" id="btn-cancel-connection" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Vista: Detalle de Conexión -->
+        <div id="connection-detail-view" class="view">
+            <div class="view-header">
+                <h2 id="connection-detail-title">Detalle de Conexión</h2>
+                <div class="header-actions">
+                    <button id="btn-edit-connection" class="btn btn-info">✏️ Editar</button>
+                    <button id="btn-test-connection-detail" class="btn btn-success">🧪 Probar</button>
+                    <button id="btn-back-from-connection-detail" class="btn btn-secondary">Volver</button>
+                </div>
+            </div>
+            
+            <div class="connection-info" id="connection-info">
+                <!-- Info de la conexión se carga dinámicamente -->
+            </div>
+            
+            <div class="connection-history">
+                <h3>📊 Historial de Pruebas</h3>
+                <div class="history-list" id="connection-history-list">
+                    <div class="loading">Cargando historial...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Envío de Datos -->
+        <div id="send-data-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📤 Enviar Datos del Dispositivo</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Selecciona una conexión para enviar los datos:</p>
+                    <div class="connections-selector" id="connections-selector">
+                        <!-- Lista de conexiones activas -->
+                    </div>
+                    <div class="data-preview">
+                        <h4>Vista previa de los datos:</h4>
+                        <pre id="send-data-preview"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-confirm-send" class="btn btn-primary">Enviar</button>
+                    <button id="btn-cancel-send" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificaciones -->
+    <div id="notifications" class="notifications"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
