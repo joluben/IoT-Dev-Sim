@@ -8,13 +8,23 @@ import base64
 from .database import execute_query, execute_insert
 
 class Device:
-    def __init__(self, id=None, reference=None, name=None, description=None, csv_data=None, created_at=None):
+    DEVICE_TYPES = ['WebApp', 'Sensor']
+
+    def __init__(self, id=None, reference=None, name=None, description=None, csv_data=None, created_at=None,
+                 device_type='WebApp', transmission_frequency=3600, transmission_enabled=False,
+                 current_row_index=0, last_transmission=None, selected_connection_id=None):
         self.id = id
         self.reference = reference
         self.name = name
         self.description = description
         self.csv_data = csv_data
         self.created_at = created_at
+        self.device_type = device_type
+        self.transmission_frequency = transmission_frequency
+        self.transmission_enabled = transmission_enabled
+        self.current_row_index = current_row_index
+        self.last_transmission = last_transmission
+        self.selected_connection_id = selected_connection_id
 
     @staticmethod
     def generate_reference():
@@ -70,13 +80,25 @@ class Device:
     @classmethod
     def _from_row(cls, row):
         """Crea una instancia de Device desde una fila de BD"""
+        # sqlite3.Row no implementa dict.get; usamos acceso seguro por claves
+        keys = row.keys()
+
+        def get_value(key, default=None):
+            return row[key] if key in keys and row[key] is not None else default
+
         return cls(
             id=row['id'],
             reference=row['reference'],
             name=row['name'],
-            description=row['description'],
-            csv_data=row['csv_data'],
-            created_at=row['created_at']
+            description=get_value('description', None),
+            csv_data=get_value('csv_data', None),
+            created_at=get_value('created_at', None),
+            device_type=get_value('device_type', 'WebApp'),
+            transmission_frequency=get_value('transmission_frequency', 3600),
+            transmission_enabled=bool(get_value('transmission_enabled', False)),
+            current_row_index=get_value('current_row_index', 0),
+            last_transmission=get_value('last_transmission', None),
+            selected_connection_id=get_value('selected_connection_id', None)
         )
 
     def to_dict(self):
@@ -87,8 +109,103 @@ class Device:
             'name': self.name,
             'description': self.description,
             'csv_data': self.get_csv_data_parsed(),
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'device_type': self.device_type,
+            'transmission_frequency': self.transmission_frequency,
+            'transmission_enabled': self.transmission_enabled,
+            'current_row_index': self.current_row_index,
+            'last_transmission': self.last_transmission,
+            'selected_connection_id': self.selected_connection_id
         }
+
+    def get_transmission_data(self):
+        """Retorna datos formateados para la transmisión según el tipo de dispositivo."""
+        if self.device_type == 'WebApp':
+            return self._get_full_csv_data()
+        elif self.device_type == 'Sensor':
+            return self._get_next_row_data()
+        return None
+
+    def _get_full_csv_data(self):
+        """Prepara el payload para un dispositivo WebApp (todo el CSV)."""
+        csv_content = self.get_csv_data_parsed()
+        if not csv_content:
+            return None
+        # Fallback: usar 'json_preview' si 'data' no está presente
+        data_rows = csv_content.get('data')
+        if data_rows is None and 'json_preview' in csv_content:
+            data_rows = csv_content.get('json_preview')
+        if data_rows is None:
+            return None
+        return {
+            "device_id": self.reference,
+            "device_name": self.name,
+            "device_type": self.device_type,
+            "transmission_timestamp": datetime.utcnow().isoformat() + 'Z',
+            "data_count": len(data_rows),
+            "data": data_rows
+        }
+
+    def _get_next_row_data(self):
+        """Prepara el payload para un dispositivo Sensor (siguiente fila)."""
+        csv_content = self.get_csv_data_parsed()
+        if not csv_content:
+            return None
+        # Fallback: usar 'json_preview' si 'data' no está presente
+        data_rows = csv_content.get('data')
+        if data_rows is None and 'json_preview' in csv_content:
+            data_rows = csv_content.get('json_preview')
+        if data_rows is None:
+            return None
+        if self.current_row_index >= len(data_rows):
+            return None  # No hay más filas para enviar
+
+        row_data = data_rows[self.current_row_index]
+        row_data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+
+        return {
+            "device_id": self.reference,
+            "device_name": self.name,
+            "device_type": self.device_type,
+            "transmission_timestamp": row_data['timestamp'],
+            "row_index": self.current_row_index,
+            "data": row_data
+        }
+
+    def update_transmission_config(self, device_type=None, frequency=None, enabled=None, connection_id=None):
+        """Actualiza la configuración de transmisión del dispositivo."""
+        if device_type and device_type in self.DEVICE_TYPES:
+            self.device_type = device_type
+            execute_insert('UPDATE devices SET device_type = ? WHERE id = ?', [self.device_type, self.id])
+
+        if frequency is not None:
+            self.transmission_frequency = frequency
+            execute_insert('UPDATE devices SET transmission_frequency = ? WHERE id = ?', [self.transmission_frequency, self.id])
+
+        if enabled is not None:
+            self.transmission_enabled = enabled
+            execute_insert('UPDATE devices SET transmission_enabled = ? WHERE id = ?', [self.transmission_enabled, self.id])
+
+        if connection_id is not None:
+            # Persist selected connection for manual or scheduled transmissions
+            self.selected_connection_id = connection_id
+            execute_insert('UPDATE devices SET selected_connection_id = ? WHERE id = ?', [self.selected_connection_id, self.id])
+
+    def advance_sensor_row(self):
+        """Avanza el índice de la fila para dispositivos Sensor y actualiza la BD."""
+        if self.device_type == 'Sensor':
+            self.current_row_index += 1
+            execute_insert('UPDATE devices SET current_row_index = ? WHERE id = ?', [self.current_row_index, self.id])
+
+    def reset_sensor_position(self):
+        """Reinicia el índice de la fila para dispositivos Sensor a 0."""
+        self.current_row_index = 0
+        execute_insert('UPDATE devices SET current_row_index = ? WHERE id = ?', [self.current_row_index, self.id])
+
+    def update_last_transmission(self):
+        """Actualiza el timestamp de la última transmisión."""
+        self.last_transmission = datetime.utcnow()
+        execute_insert('UPDATE devices SET last_transmission = ? WHERE id = ?', [self.last_transmission, self.id])
 
 
 class EncryptionManager:

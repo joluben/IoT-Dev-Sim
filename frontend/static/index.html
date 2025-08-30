@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevSim - Simulador de señales de dispositivos</title>
     <link rel="stylesheet" href="styles.css">
+    
 </head>
 <body>
     <div class="container">
@@ -77,6 +78,101 @@
                 </div>
             </div>
             
+            <!-- Configuración de Transmisión -->
+            <div class="transmission-section" id="transmission-section">
+                <h3>📡 Configuración de Transmisión</h3>
+                
+                <!-- Estado de Transmisión -->
+                <div class="transmission-status">
+                    <div class="status-indicator-container">
+                        <div id="transmission-state-indicator" class="transmission-indicator state-inactive"></div>
+                        <span id="transmission-state-text" class="state-text">Inactivo</span>
+                    </div>
+                    <div id="transmission-progress" class="transmission-progress" style="display: none;">
+                        <div id="sensor-progress-indicator"></div>
+                    </div>
+                    <div class="next-transmission" id="next-transmission-info" style="display: none;">
+                        <span>Próxima transmisión: <span id="next-transmission-time">--</span></span>
+                    </div>
+                </div>
+                
+                <div class="transmission-config">
+                    <div class="config-row">
+                        <div class="form-group">
+                            <label for="device-type">Tipo de Dispositivo</label>
+                            <select id="device-type" name="device_type">
+                                <option value="WebApp">📱 WebApp (Envío completo)</option>
+                                <option value="Sensor">🔬 Sensor (Fila por fila)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transmission-frequency">Frecuencia (segundos)</label>
+                            <input type="number" id="transmission-frequency" name="transmission_frequency" min="1" value="3600">
+                        </div>
+                    </div>
+                    
+                    <div class="config-row">
+                        <div class="form-group">
+                            <label for="transmission-connection">Conexión para Transmisión</label>
+                            <select id="transmission-connection" name="transmission_connection">
+                                <option value="">Seleccionar conexión...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="transmission-enabled" name="transmission_enabled">
+                                <span class="checkmark"></span>
+                                Transmisión automática habilitada
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="config-row" id="sensor-controls" style="display: none;">
+                        <div class="form-group">
+                            <label>Posición actual: <span id="current-row-index">0</span></label>
+                            <button id="btn-reset-sensor" class="btn btn-warning btn-sm">🔄 Reiniciar Posición</button>
+                        </div>
+                    </div>
+                    
+                    <div class="config-actions">
+                        <button id="btn-save-transmission-config" class="btn btn-primary">💾 Guardar Configuración</button>
+                        <button id="btn-transmit-now" class="btn btn-success">📤 Transmitir Ahora</button>
+                        <button id="btn-pause-transmission" class="btn btn-warning">⏸️ Pausar</button>
+                        <button id="btn-resume-transmission" class="btn btn-info">▶️ Reanudar</button>
+                        <button id="btn-stop-transmission" class="btn btn-danger">⏹️ Parar</button>
+                    </div>
+                </div>
+                
+                <!-- Historial de Transmisiones -->
+                <div class="transmission-history">
+                    <div class="history-header">
+                        <h4>📋 Historial de Transmisiones</h4>
+                        <div class="history-controls">
+                            <select id="history-filter-status" class="filter-select">
+                                <option value="">Todos los estados</option>
+                                <option value="SUCCESS">Exitosas</option>
+                                <option value="FAILED">Fallidas</option>
+                            </select>
+                            <select id="history-filter-connection" class="filter-select">
+                                <option value="">Todas las conexiones</option>
+                            </select>
+                            <button class="btn btn-sm btn-secondary" onclick="exportTransmissionHistory()">📥 Exportar</button>
+                            <button class="btn btn-sm btn-primary" onclick="refreshTransmissionHistory()">🔄</button>
+                        </div>
+                    </div>
+                    <div id="transmission-history-list" class="history-list">
+                        <div class="loading">Sin transmisiones</div>
+                    </div>
+                    <div class="history-pagination" id="history-pagination" style="display: none;">
+                        <button class="btn btn-sm" onclick="loadHistoryPage('prev')">← Anterior</button>
+                        <span id="history-page-info">Página 1</span>
+                        <button class="btn btn-sm" onclick="loadHistoryPage('next')">Siguiente →</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Previsualización -->
             <div class="preview-section" id="preview-section" style="display: none;">
                 <h3>Previsualización</h3>
@@ -250,11 +346,35 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal de Transmisión Manual -->
+        <div id="transmit-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📡 Transmisión Manual</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Selecciona una conexión para la transmisión:</p>
+                    <div class="connections-selector" id="transmit-connections-selector">
+                        <!-- Lista de conexiones activas -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-confirm-transmit" class="btn btn-primary">Transmitir</button>
+                    <button id="btn-cancel-transmit" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        
     </div>
 
     <!-- Notificaciones -->
-    <div id="notifications" class="notifications"></div>
+    <div id="notifications" class="notifications-container"></div>
 
+    <script src="transmission-api.js"></script>
+    <script src="realtime.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

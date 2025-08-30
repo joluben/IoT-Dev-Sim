@@ -95,6 +95,25 @@ class MQTTClient:
         
         return True
 
+    def send(self, data):
+        """Interfaz unificada para TransmissionManager: conecta, publica y desconecta.
+        Usa connection_config['endpoint'] como topic por defecto.
+        """
+        topic = self.connection_config.get('endpoint') or self.connection_config.get('topic') or 'devices/data'
+        try:
+            connected = self.connect()
+            if not connected:
+                return False, 'MQTT not connected'
+            self.publish(topic, data)
+            self.disconnect()
+            return True, f'Published to topic {topic}'
+        except Exception as e:
+            try:
+                self.disconnect()
+            except Exception:
+                pass
+            return False, str(e)
+
     def _sanitize_host(self, host: str) -> str:
         """Elimina esquemas tipo mqtt://, tcp://, ssl://, ws:// del host si vienen incluidos"""
         if not host:
@@ -243,6 +262,22 @@ class HTTPSClient:
         
         response.raise_for_status()
         return response
+
+    def send(self, data):
+        """Interfaz unificada para TransmissionManager: envía request HTTPS.
+        Usa endpoint/metod/timeout de connection_config.
+        """
+        try:
+            response = self.send_request(data)
+            ok = 200 <= response.status_code < 300
+            text = ''
+            try:
+                text = response.text
+            except Exception:
+                text = str(response.status_code)
+            return ok, text
+        except Exception as e:
+            return False, str(e)
     
     def test_connection(self):
         """Prueba la conexión HTTPS"""

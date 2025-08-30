@@ -1,7 +1,12 @@
 Flask==2.3.3
-pandas==2.0.3
+pandas==2.1.0
 python-dotenv==1.0.0
 Flask-CORS==4.0.0
 paho-mqtt==1.6.1
 requests==2.31.0
-cryptography==41.0.37
+cryptography==45.0.6
+APScheduler==3.10.4
+websocket-client==1.6.3
+SQLAlchemy==1.4.46
+Flask-Sock==0.7.0
+simple-websocket==1.0.0

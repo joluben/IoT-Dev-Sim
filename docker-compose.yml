@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -12,6 +10,7 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_APP=run.py
+      - DATABASE_URL=sqlite:////app/data/scheduler_jobs.db
     networks:
       - devsim-network
     restart: unless-stopped

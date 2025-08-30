@@ -1,11 +1,14 @@
 // API Configuration
-const API_BASE = 'http://localhost:5000/api';
+// Use relative base so Nginx can proxy /api to backend container
+const API_BASE = '/api';
 
-// State management
-let currentView = 'devices-list';
+// Global variables
+let devices = [];
+let connections = [];
 let currentDevice = null;
-let csvPreviewData = null;
-let currentConnection = null;
+let transmissionAPI = null;
+let realtimeMonitor = null;
+let visualizations = null;
 let editingConnection = null;
 
 // DOM Elements
@@ -135,6 +138,28 @@ const API = {
             method: 'POST'
         });
         return response.json();
+    },
+
+    // Manual transmit API
+    async manualTransmit(deviceId, connectionId) {
+        const response = await fetch(`${API_BASE}/devices/${deviceId}/transmit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connection_id: connectionId })
+        });
+        return response.json();
+    },
+
+    // Transmission history API
+    async getTransmissionHistory(deviceId, limit = 20) {
+        const response = await fetch(`${API_BASE}/devices/${deviceId}/transmission-history?limit=${limit}`);
+        return response.json();
+    },
+
+    // Reset sensor position API
+    async resetSensor(deviceId) {
+        const response = await fetch(`${API_BASE}/devices/${deviceId}/reset-sensor`, { method: 'POST' });
+        return response.json();
     }
 };
 
@@ -151,12 +176,157 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Transmit modal functions (manual transmission)
+async function showTransmitModal() {
+    try {
+        const connections = await API.getConnections();
+        const activeConnections = connections.filter(conn => conn.is_active);
+        const selector = document.getElementById('transmit-connections-selector');
+        if (!selector) return;
+        if (activeConnections.length === 0) {
+            selector.innerHTML = '<div class="loading">No hay conexiones activas</div>';
+        } else {
+            selector.innerHTML = activeConnections.map(conn => `
+                <div class="connection-option" onclick="selectTransmitConnection(${conn.id})">
+                    <input type="radio" name="tx_connection" value="${conn.id}" id="tx-conn-${conn.id}">
+                    <div class="connection-option-info">
+                        <div class="connection-option-name">${conn.name}</div>
+                        <div class="connection-option-details">${conn.type} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        document.getElementById('transmit-modal').classList.add('active');
+    } catch (error) {
+        showNotification('Error cargando conexiones: ' + error.message, 'error');
+    }
+}
+
+function selectTransmitConnection(connectionId) {
+    document.querySelectorAll('#transmit-connections-selector .connection-option').forEach(opt => opt.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    document.getElementById(`tx-conn-${connectionId}`).checked = true;
+}
+
+function hideTransmitModal() {
+    document.getElementById('transmit-modal').classList.remove('active');
+}
+
+async function confirmTransmit() {
+    const selected = document.querySelector('input[name="tx_connection"]:checked');
+    if (!selected) {
+        showNotification('Selecciona una conexión', 'warning');
+        return;
+    }
+    try {
+        const res = await API.manualTransmit(currentDevice.id, selected.value);
+        if (res.error) {
+            showNotification(`❌ ${res.error}`, 'error');
+        } else {
+            showNotification('📤 Transmisión realizada', 'success');
+            // Update sensor position and last transmission if provided
+            if (typeof res.current_row_index === 'number') {
+                const idxEl = document.getElementById('current-row-index');
+                if (idxEl) idxEl.textContent = String(res.current_row_index);
+                currentDevice.current_row_index = res.current_row_index;
+            }
+            if (res.last_transmission) {
+                // Optionally refresh config/history to reflect timestamp
+            }
+            await loadTransmissionHistory(currentDevice.id);
+        }
+    } catch (e) {
+        showNotification('Error al transmitir: ' + e.message, 'error');
+    } finally {
+        hideTransmitModal();
+    }
+}
+
+// Transmission history
+async function loadTransmissionHistory(deviceId) {
+    try {
+        const list = document.getElementById('transmission-history-list');
+        if (!list) return;
+        list.innerHTML = '<div class="loading">Cargando historial...</div>';
+        const history = await API.getTransmissionHistory(deviceId);
+        if (!history || history.length === 0) {
+            list.innerHTML = '<div class="loading">Sin transmisiones</div>';
+            return;
+        }
+        list.innerHTML = history.map(item => `
+            <div class="history-item ${item.status && item.status.toLowerCase()}">
+                <div class="history-info">
+                    <div class="history-result ${item.status && item.status.toLowerCase()}">
+                        ${item.status === 'SUCCESS' ? '✅ Éxito' : '❌ Falló'}
+                    </div>
+                    <div class="history-time">${new Date(item.timestamp || item.sent_at || item.created_at).toLocaleString()}</div>
+                    ${item.error_message ? `<div class="history-error">${item.error_message}</div>` : ''}
+                </div>
+                ${item.response_time ? `<div class="history-response-time">${item.response_time}ms</div>` : ''}
+            </div>
+        `).join('');
+    } catch (error) {
+        const list = document.getElementById('transmission-history-list');
+        if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
+    }
+}
+
+// Paused state persistence (per-device) in sessionStorage
+function getPausedState(deviceId) {
+    const key = `devsim:paused:${deviceId}`;
+    return sessionStorage.getItem(key) === 'true';
+}
+
+function setPausedState(deviceId, paused) {
+    const key = `devsim:paused:${deviceId}`;
+    if (paused) {
+        sessionStorage.setItem(key, 'true');
+    } else {
+        sessionStorage.removeItem(key);
+    }
+}
+
+function updateTransmissionControls({ enabled, paused, deviceType }) {
+    const transmitBtn = document.getElementById('btn-transmit-now');
+    const pauseBtn = document.getElementById('btn-pause-transmission');
+    const resumeBtn = document.getElementById('btn-resume-transmission');
+    const stopBtn = document.getElementById('btn-stop-transmission');
+
+    if (!transmitBtn || !pauseBtn || !resumeBtn || !stopBtn) return;
+
+    // Allow manual "Transmitir ahora" when INACTIVE or PAUSED; disable when automatic is ACTIVE
+    transmitBtn.disabled = !!(enabled && !paused);
+
+    // Running (enabled = true)
+    if (enabled) {
+        pauseBtn.style.display = 'inline-block';
+        resumeBtn.style.display = 'none';
+        pauseBtn.disabled = false;
+        stopBtn.disabled = false;
+        return;
+    }
+
+    // Not running: paused vs stopped
+    if (paused) {
+        // Paused: can resume or stop, transmit now enabled
+        transmitBtn.disabled = false;
+        pauseBtn.style.display = 'none';
+        resumeBtn.style.display = 'inline-block';
+        resumeBtn.disabled = false;
+        stopBtn.disabled = false;
+    } else {
+        // Stopped: transmit now enabled, stop disabled, hide resume/pause
+        transmitBtn.disabled = false;
+        pauseBtn.style.display = 'none';
+        resumeBtn.style.display = 'none';
+        stopBtn.disabled = true;
+    }
+}
+
 function showView(viewName) {
     // Hide all views
     Object.values(views).forEach(view => {
-        if (view) {
-            view.style.display = 'none';
-        }
+        if (view) view.style.display = 'none';
     });
     
     // Show selected view
@@ -232,6 +402,11 @@ async function viewDevice(deviceId) {
         const device = await API.getDevice(deviceId);
         currentDevice = device;
         renderDeviceDetail(device);
+        
+        // Load transmission configuration and history
+        await loadTransmissionConfig(deviceId);
+        await loadTransmissionHistory(deviceId);
+        
         showView('deviceDetail');
     } catch (error) {
         showNotification('Error al cargar dispositivo: ' + error.message, 'error');
@@ -1054,6 +1229,481 @@ async function confirmSendData() {
     }
 }
 
+// Transmission Functions
+async function loadTransmissionConfig(deviceId) {
+    try {
+        const response = await fetch(`${API_BASE}/devices/${deviceId}/transmission-config`);
+        const config = await response.json();
+        
+        document.getElementById('device-type').value = config.device_type;
+        document.getElementById('transmission-frequency').value = config.transmission_frequency;
+        document.getElementById('transmission-enabled').checked = config.transmission_enabled;
+        
+        // Show/hide sensor controls
+        const sensorControls = document.getElementById('sensor-controls');
+        if (config.device_type === 'Sensor') {
+            sensorControls.style.display = 'block';
+            document.getElementById('current-row-index').textContent = currentDevice.current_row_index || 0;
+        } else {
+            sensorControls.style.display = 'none';
+        }
+
+        // Update transmission status indicator
+        updateTransmissionStatusIndicator(config);
+        
+        // Update transmission controls
+        updateTransmissionControls({
+            enabled: config.transmission_enabled || false,
+            paused: config.transmission_paused || false,
+            deviceType: config.device_type
+        });
+
+        // Load transmission history
+        loadTransmissionHistory(deviceId);
+        
+        // Load connections for transmission selector (await to avoid race condition)
+        await loadTransmissionConnections();
+        
+        // Set selected connection if device has one configured
+        const selectedId = config.selected_connection_id;
+        if (selectedId) {
+            const connectionSelector = document.getElementById('transmission-connection');
+            if (connectionSelector) {
+                connectionSelector.value = String(selectedId);
+            }
+        }
+        
+    } catch (error) {
+        showNotification('Error cargando configuración: ' + error.message, 'error');
+    }
+}
+
+// ...
+async function saveTransmissionConfig() {
+    const deviceType = document.getElementById('device-type').value;
+    const frequency = parseInt(document.getElementById('transmission-frequency').value);
+    const enabled = document.getElementById('transmission-enabled').checked;
+    const connectionId = document.getElementById('transmission-connection').value;
+    
+    try {
+        const response = await fetch(`${API_BASE}/devices/${currentDevice.id}/transmission-config`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                device_type: deviceType,
+                transmission_frequency: frequency,
+                transmission_enabled: enabled,
+                connection_id: connectionId || null
+            })
+        });
+        
+        if (response.ok) {
+            const updatedDevice = await response.json();
+            currentDevice = updatedDevice;
+            showNotification('✅ Configuración guardada correctamente', 'success');
+            
+            // Update sensor controls visibility
+            const sensorControls = document.getElementById('sensor-controls');
+            if (deviceType === 'Sensor') {
+                sensorControls.style.display = 'block';
+                document.getElementById('current-row-index').textContent = updatedDevice.current_row_index || 0;
+            } else {
+                sensorControls.style.display = 'none';
+            }
+
+            // Update transmission status indicator based on actual device state
+            updateTransmissionStatusIndicator(updatedDevice);
+            
+            // Update controls without auto-starting transmission
+            updateTransmissionControls({
+                enabled: !!updatedDevice.transmission_enabled,
+                paused: !!updatedDevice.transmission_paused,
+                deviceType
+            });
+
+            // If enabled and a connection is selected, start automatic transmission now
+            if (enabled && connectionId) {
+                try {
+                    await transmissionAPI.startTransmission(currentDevice.id, connectionId);
+                    showNotification('🚀 Transmisión automática iniciada', 'success');
+                    // Refresh config/state from backend to reflect ACTIVE/PAUSED and next run time
+                    await loadTransmissionConfig(currentDevice.id);
+                    await loadTransmissionHistory(currentDevice.id);
+                } catch (e) {
+                    showNotification('❌ Error iniciando transmisión automática: ' + e.message, 'error');
+                }
+            }
+        } else {
+            showNotification('❌ Error guardando configuración', 'error');
+        }
+        
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+// Update transmission status indicator
+function updateTransmissionStatusIndicator(device) {
+    const indicator = document.getElementById('transmission-state-indicator');
+    const stateText = document.getElementById('transmission-state-text');
+    
+    if (!indicator || !stateText) return;
+    
+    // Remove all state classes
+    indicator.className = 'transmission-indicator';
+    
+    if (device.transmission_enabled && !device.transmission_paused) {
+        indicator.classList.add('state-active');
+        stateText.textContent = 'Activo';
+    } else if (device.transmission_enabled && device.transmission_paused) {
+        indicator.classList.add('state-paused');
+        stateText.textContent = 'Pausado';
+    } else if (device.transmission_enabled) {
+        indicator.classList.add('state-manual');
+        stateText.textContent = 'Manual';
+    } else {
+        indicator.classList.add('state-inactive');
+        stateText.textContent = 'Inactivo';
+    }
+}
+
+// Load connections into transmission selector
+async function loadTransmissionConnections() {
+    try {
+        const response = await fetch(`${API_BASE}/connections`);
+        if (response.ok) {
+            const connections = await response.json();
+            const selector = document.getElementById('transmission-connection');
+            
+            // Clear existing options except the first one
+            selector.innerHTML = '<option value="">Seleccionar conexión...</option>';
+            
+            connections.forEach(conn => {
+                const option = document.createElement('option');
+                option.value = conn.id;
+                option.textContent = `${conn.name} (${conn.url})`;
+                selector.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading connections:', error);
+    }
+}
+
+// ...
+
+async function pauseTransmissionUI() {
+    try {
+        const response = await transmissionAPI.pauseTransmission(currentDevice.id);
+        showNotification('⏸️ Transmisión pausada', 'info');
+        
+        // Update device state
+        currentDevice.transmission_paused = true;
+        updateTransmissionStatusIndicator(currentDevice);
+        updateTransmissionControls({ 
+            enabled: currentDevice.transmission_enabled, 
+            paused: true, 
+            deviceType: currentDevice.device_type 
+        });
+    } catch (e) {
+        showNotification('Error al pausar: ' + e.message, 'error');
+    }
+}
+
+async function resumeTransmissionUI() {
+    try {
+        const response = await transmissionAPI.resumeTransmission(currentDevice.id);
+        showNotification('▶️ Transmisión reanudada', 'success');
+        
+        // Update device state
+        currentDevice.transmission_paused = false;
+        updateTransmissionStatusIndicator(currentDevice);
+        updateTransmissionControls({ 
+            enabled: currentDevice.transmission_enabled, 
+            paused: false, 
+            deviceType: currentDevice.device_type 
+        });
+    } catch (e) {
+        showNotification('Error al reanudar: ' + e.message, 'error');
+    }
+}
+
+async function stopTransmissionUI() {
+    try {
+        const response = await transmissionAPI.stopTransmission(currentDevice.id);
+        showNotification('⏹️ Transmisión detenida', 'info');
+        
+        // Update device state
+        currentDevice.transmission_enabled = false;
+        currentDevice.transmission_paused = false;
+        document.getElementById('transmission-enabled').checked = false;
+        
+        updateTransmissionStatusIndicator(currentDevice);
+        updateTransmissionControls({ 
+            enabled: false, 
+            paused: false, 
+            deviceType: currentDevice.device_type 
+        });
+    } catch (e) {
+        showNotification('Error al detener: ' + e.message, 'error');
+    }
+}
+
+async function transmitNowUI() {
+    const connectionId = document.getElementById('transmission-connection').value;
+    
+    if (!connectionId) {
+        showNotification('❌ Debe seleccionar una conexión para transmitir', 'error');
+        return;
+    }
+    
+    try {
+        // Manual transmission: do NOT start automatic scheduler or toggle the checkbox
+        const response = await transmissionAPI.transmitNow(currentDevice.id, connectionId);
+        if (response && response.success) {
+            showNotification('📤 Transmisión manual realizada', 'success');
+        } else if (response && response.error) {
+            showNotification('❌ ' + response.error, 'error');
+        } else {
+            showNotification('📤 Solicitud de transmisión enviada', 'info');
+        }
+
+        // Refresh history and leave automatic state untouched
+        await loadTransmissionHistory(currentDevice.id);
+    } catch (e) {
+        showNotification('Error al transmitir: ' + e.message, 'error');
+    }
+}
+
+// Reset sensor position
+async function resetSensorPosition() {
+    if (!currentDevice) return;
+    try {
+        const res = await API.resetSensor(currentDevice.id);
+        if (res.error) {
+            showNotification(`❌ ${res.error}`, 'error');
+            return;
+        }
+        const idx = typeof res.current_row_index === 'number' ? res.current_row_index : 0;
+        const idxEl = document.getElementById('current-row-index');
+        if (idxEl) idxEl.textContent = String(idx);
+        currentDevice.current_row_index = idx;
+        showNotification('🔄 Posición del sensor reiniciada', 'success');
+    } catch (e) {
+        showNotification('Error al reiniciar sensor: ' + e.message, 'error');
+    }
+}
+
+// Enhanced transmission history with filters and export
+let currentHistoryPage = 1;
+let historyFilters = { status: '', connection: '' };
+
+async function loadTransmissionHistory(deviceId, page = 1) {
+    try {
+        const list = document.getElementById('transmission-history-list');
+        if (!list) return;
+        
+        list.innerHTML = '<div class="loading">Cargando historial...</div>';
+        
+        // Build query parameters
+        const params = new URLSearchParams({
+            limit: '10',
+            page: page.toString()
+        });
+        
+        if (historyFilters.status) params.append('status', historyFilters.status);
+        if (historyFilters.connection) params.append('connection_id', historyFilters.connection);
+        
+        const response = await fetch(`${API_BASE}/devices/${deviceId}/transmission-history?${params}`);
+        const data = await response.json();
+        
+        if (!data.history || data.history.length === 0) {
+            list.innerHTML = '<div class="loading">Sin transmisiones</div>';
+            document.getElementById('history-pagination').style.display = 'none';
+            return;
+        }
+        
+        list.innerHTML = data.history.map(item => `
+            <div class="history-item ${item.status && item.status.toLowerCase()}">
+                <div class="history-info">
+                    <div class="history-result ${item.status && item.status.toLowerCase()}">
+                        ${item.status === 'SUCCESS' ? '✅ Éxito' : '❌ Falló'}
+                    </div>
+                    <div class="history-time">${new Date(item.timestamp || item.sent_at || item.created_at).toLocaleString()}</div>
+                    ${item.connection_name ? `<div class="history-connection">Conexión: ${item.connection_name}</div>` : ''}
+                    ${item.error_message ? `<div class="history-error">${item.error_message}</div>` : ''}
+                </div>
+                ${item.response_time ? `<div class="history-response-time">${item.response_time}ms</div>` : ''}
+            </div>
+        `).join('');
+        
+        // Update pagination
+        currentHistoryPage = page;
+        const pagination = document.getElementById('history-pagination');
+        const pageInfo = document.getElementById('history-page-info');
+        
+        if (data.total_pages > 1) {
+            pagination.style.display = 'flex';
+            pageInfo.textContent = `Página ${page} de ${data.total_pages}`;
+            
+            const prevBtn = pagination.querySelector('button:first-child');
+            const nextBtn = pagination.querySelector('button:last-child');
+            
+            prevBtn.disabled = page <= 1;
+            nextBtn.disabled = page >= data.total_pages;
+        } else {
+            pagination.style.display = 'none';
+        }
+        
+    } catch (error) {
+        const list = document.getElementById('transmission-history-list');
+        if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
+    }
+}
+
+function loadHistoryPage(direction) {
+    if (!currentDevice) return;
+    
+    let newPage = currentHistoryPage;
+    if (direction === 'prev' && currentHistoryPage > 1) {
+        newPage = currentHistoryPage - 1;
+    } else if (direction === 'next') {
+        newPage = currentHistoryPage + 1;
+    }
+    
+    loadTransmissionHistory(currentDevice.id, newPage);
+}
+
+function refreshTransmissionHistory() {
+    if (!currentDevice) return;
+    loadTransmissionHistory(currentDevice.id, currentHistoryPage);
+}
+
+async function exportTransmissionHistory() {
+    if (!currentDevice) {
+        showNotification('No hay dispositivo seleccionado', 'warning');
+        return;
+    }
+    
+    try {
+        const params = new URLSearchParams();
+        if (historyFilters.status) params.append('status', historyFilters.status);
+        if (historyFilters.connection) params.append('connection_id', historyFilters.connection);
+        
+        const response = await fetch(`${API_BASE}/devices/${currentDevice.id}/transmission-history/export?format=csv&${params}`);
+        
+        if (!response.ok) {
+            throw new Error('Error al exportar historial');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transmission-history-${currentDevice.name}-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('✅ Historial exportado exitosamente', 'success');
+        
+    } catch (error) {
+        showNotification('Error al exportar historial: ' + error.message, 'error');
+    }
+}
+
+// Initialize history filters
+function initializeHistoryFilters() {
+    const statusFilter = document.getElementById('history-filter-status');
+    const connectionFilter = document.getElementById('history-filter-connection');
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            historyFilters.status = this.value;
+            if (currentDevice) {
+                loadTransmissionHistory(currentDevice.id, 1);
+            }
+        });
+    }
+    
+    if (connectionFilter) {
+        connectionFilter.addEventListener('change', function() {
+            historyFilters.connection = this.value;
+            if (currentDevice) {
+                loadTransmissionHistory(currentDevice.id, 1);
+            }
+        });
+        
+        // Load connections for filter
+        loadConnectionsForFilter();
+    }
+}
+
+async function loadConnectionsForFilter() {
+    try {
+        const connections = await API.getConnections();
+        const connectionFilter = document.getElementById('history-filter-connection');
+        
+        if (connectionFilter && connections) {
+            connectionFilter.innerHTML = '<option value="">Todas las conexiones</option>' +
+                connections.map(conn => `<option value="${conn.id}">${conn.name}</option>`).join('');
+        }
+    } catch (error) {
+        console.error('Error loading connections for filter:', error);
+    }
+}
+
+
+// ...
+
+// Initialize application
+document.addEventListener('DOMContentLoaded', function() {
+    transmissionAPI = new TransmissionAPI();
+    realtimeMonitor = new RealtimeTransmissionMonitor();
+    
+    loadDevices();
+    loadConnections();
+    
+    // Initialize real-time monitoring
+    // Realtime monitor auto-connects internally
+});
+
+// Event Listeners for Transmission Controls
+document.addEventListener('DOMContentLoaded', function() {
+    // Device type change handler
+    document.getElementById('device-type').addEventListener('change', function() {
+        const sensorControls = document.getElementById('sensor-controls');
+        if (this.value === 'Sensor') {
+            sensorControls.style.display = 'block';
+        } else {
+            sensorControls.style.display = 'none';
+        }
+    });
+    
+    // Transmission config buttons
+    document.getElementById('btn-save-transmission-config').addEventListener('click', saveTransmissionConfig);
+    document.getElementById('btn-transmit-now').addEventListener('click', transmitNowUI);
+    document.getElementById('btn-reset-sensor').addEventListener('click', resetSensorPosition);
+    // Transmission control buttons
+    document.getElementById('btn-pause-transmission').addEventListener('click', pauseTransmissionUI);
+    document.getElementById('btn-resume-transmission').addEventListener('click', resumeTransmissionUI);
+    document.getElementById('btn-stop-transmission').addEventListener('click', stopTransmissionUI);
+    document.getElementById('btn-cancel-transmit').addEventListener('click', hideTransmitModal);
+    document.getElementById('btn-confirm-transmit').addEventListener('click', confirmTransmit);
+    
+    // Initialize history filters
+    initializeHistoryFilters();
+    
+    // Modal close handlers
+    document.querySelectorAll('#transmit-modal .modal-close').forEach(btn => {
+        btn.addEventListener('click', hideTransmitModal);
+    });
+});
+
+// Initialize visualization tabs
+// (Device analytics/dashboard removed by design)
+
 // Global functions for onclick handlers
 window.viewDevice = viewDevice;
 window.viewConnection = viewConnection;
@@ -1061,3 +1711,4 @@ window.editConnection = editConnection;
 window.testConnection = testConnection;
 window.deleteConnection = deleteConnection;
 window.selectConnection = selectConnection;
+window.selectTransmitConnection = selectTransmitConnection;

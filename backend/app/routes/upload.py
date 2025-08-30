@@ -44,7 +44,7 @@ def process_csv_preview(file_path):
         data_rows = rows[1:]
         preview_rows = data_rows[:5]
         
-        # Convertir a JSON las primeras 5 filas
+        # Convertir a JSON las primeras 5 filas para vista previa
         json_preview = []
         for row in preview_rows:
             row_dict = {}
@@ -52,11 +52,20 @@ def process_csv_preview(file_path):
                 row_dict[header] = row[i] if i < len(row) else ""
             json_preview.append(row_dict)
         
+        # Construir 'data' completo con todas las filas mapeadas por cabecera
+        full_data = []
+        for row in data_rows:
+            row_dict = {}
+            for i, header in enumerate(headers):
+                row_dict[header] = row[i] if i < len(row) else ""
+            full_data.append(row_dict)
+        
         return {
             'headers': headers,
             'csv_preview': preview_rows,
             'json_preview': json_preview,
-            'total_rows': len(data_rows)
+            'total_rows': len(data_rows),
+            'data': full_data
         }
         
     except Exception as e:
