@@ -10,6 +10,7 @@ let transmissionAPI = null;
 let realtimeMonitor = null;
 let visualizations = null;
 let editingConnection = null;
+let lastTransmissionHistory = [];
 
 // DOM Elements
 const views = {
@@ -249,25 +250,120 @@ async function loadTransmissionHistory(deviceId) {
         if (!list) return;
         list.innerHTML = '<div class="loading">Cargando historial...</div>';
         const history = await API.getTransmissionHistory(deviceId);
-        if (!history || history.length === 0) {
+        lastTransmissionHistory = Array.isArray(history) ? history : [];
+        if (!lastTransmissionHistory || lastTransmissionHistory.length === 0) {
             list.innerHTML = '<div class="loading">Sin transmisiones</div>';
             return;
         }
-        list.innerHTML = history.map(item => `
-            <div class="history-item ${item.status && item.status.toLowerCase()}">
+        populateHistoryConnectionFilter(lastTransmissionHistory);
+        attachHistoryFilterListeners();
+        renderTransmissionHistory();
+    } catch (error) {
+        const list = document.getElementById('transmission-history-list');
+        if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
+    }
+}
+
+function renderTransmissionHistory() {
+    const list = document.getElementById('transmission-history-list');
+    if (!list) return;
+
+    const statusFilter = document.getElementById('history-filter-status');
+    const connFilter = document.getElementById('history-filter-connection');
+
+    let items = lastTransmissionHistory.slice();
+
+    // Apply status filter
+    const statusVal = statusFilter ? statusFilter.value : '';
+    if (statusVal) {
+        items = items.filter(i => i.status === statusVal);
+    }
+
+    // Apply connection filter
+    const connVal = connFilter ? connFilter.value : '';
+    if (connVal) {
+        const connId = Number(connVal);
+        items = items.filter(i => Number(i.connection_id) === connId);
+    }
+
+    if (items.length === 0) {
+        list.innerHTML = '<div class="loading">Sin transmisiones</div>';
+        return;
+    }
+
+    list.innerHTML = items.map(item => {
+        const ts = item.timestamp || item.transmission_time || item.sent_at || item.created_at;
+        const when = ts ? new Date(ts).toLocaleString() : '';
+        const statusCls = item.status ? item.status.toLowerCase() : '';
+        return `
+            <div class="history-item ${statusCls}">
                 <div class="history-info">
-                    <div class="history-result ${item.status && item.status.toLowerCase()}">
+                    <div class="history-result ${statusCls}">
                         ${item.status === 'SUCCESS' ? '✅ Éxito' : '❌ Falló'}
                     </div>
-                    <div class="history-time">${new Date(item.timestamp || item.sent_at || item.created_at).toLocaleString()}</div>
+                    <div class="history-time">${when}</div>
                     ${item.error_message ? `<div class="history-error">${item.error_message}</div>` : ''}
                 </div>
                 ${item.response_time ? `<div class="history-response-time">${item.response_time}ms</div>` : ''}
             </div>
-        `).join('');
-    } catch (error) {
-        const list = document.getElementById('transmission-history-list');
-        if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
+        `;
+    }).join('');
+}
+
+// History controls
+function refreshTransmissionHistory() {
+    if (!currentDevice) return;
+    loadTransmissionHistory(currentDevice.id);
+}
+
+async function exportTransmissionHistory() {
+    try {
+        if (!currentDevice) return;
+        const resp = await fetch(`${API_BASE}/devices/${currentDevice.id}/transmission-history/export?format=csv`);
+        if (!resp.ok) throw new Error('Export failed');
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transmission_history_device_${currentDevice.id}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        showNotification('Error exportando historial: ' + e.message, 'error');
+    }
+}
+
+function loadHistoryPage(direction) {
+    // Placeholder for future pagination. Currently just refreshes.
+    refreshTransmissionHistory();
+}
+
+function populateHistoryConnectionFilter(historyItems) {
+    const select = document.getElementById('history-filter-connection');
+    if (!select) return;
+    const prevValue = select.value;
+    const uniqueConnIds = [...new Set(historyItems.map(i => i.connection_id).filter(Boolean))];
+    const options = ['<option value="">Todas las conexiones</option>']
+        .concat(uniqueConnIds.map(id => `<option value="${id}">Conexión ${id}</option>`));
+    select.innerHTML = options.join('');
+    // Restore previous selection if still present
+    if (prevValue && uniqueConnIds.includes(Number(prevValue))) {
+        select.value = prevValue;
+    }
+}
+
+function attachHistoryFilterListeners() {
+    const statusFilter = document.getElementById('history-filter-status');
+    const connFilter = document.getElementById('history-filter-connection');
+    if (statusFilter && !statusFilter._listenerAttached) {
+        statusFilter.addEventListener('change', renderTransmissionHistory);
+        statusFilter._listenerAttached = true;
+    }
+    if (connFilter && !connFilter._listenerAttached) {
+        connFilter.addEventListener('change', renderTransmissionHistory);
+        connFilter._listenerAttached = true;
     }
 }
 

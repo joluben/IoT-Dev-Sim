@@ -84,8 +84,27 @@ def transmit_legacy(device_id):
 
 @transmissions_bp.route('/api/devices/<int:device_id>/transmission-history', methods=['GET'])
 def get_history(device_id):
-    history = TransmissionManager.get_transmission_history(device_id)
-    return jsonify(history)
+    # Leer parámetro limit (opcional), por defecto 20
+    try:
+        limit = int(request.args.get('limit', 20))
+    except (TypeError, ValueError):
+        limit = 20
+
+    raw_history = TransmissionManager.get_transmission_history(device_id, limit=limit)
+
+    # Normalizar claves para compatibilidad con UI
+    normalized = []
+    for item in raw_history:
+        # Copia superficial del dict
+        entry = dict(item)
+        # Asegurar campo 'timestamp' esperado por el frontend
+        entry['timestamp'] = entry.get('transmission_time')
+        # Compatibilidad adicional: 'sent_at' y 'created_at'
+        entry.setdefault('sent_at', entry['timestamp'])
+        entry.setdefault('created_at', entry['timestamp'])
+        normalized.append(entry)
+
+    return jsonify(normalized)
 
 @transmissions_bp.route('/api/devices/<int:device_id>/reset-sensor', methods=['POST'])
 def reset_sensor(device_id):
