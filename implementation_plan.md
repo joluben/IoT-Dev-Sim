@@ -85,6 +85,17 @@ def generate_reference():
 # Incluir datos CSV si existen
 ```
 
+#### Subtarea 3.1.4: POST /api/devices/<id>/duplicate
+```python
+# Duplicar dispositivo n veces
+# Request: {"count": 3}
+# Copiar toda la configuración del dispositivo original
+# Generar nombres incrementales: "Device 1", "Device 2", etc.
+# Generar referencias únicas para cada duplicado
+# Resetear current_row_index a 0 para cada duplicado
+# Retornar lista de dispositivos duplicados creados
+```
+
 ### 3.2 Rutas de Upload
 
 #### Subtarea 3.2.1: POST /api/devices/<id>/upload
@@ -105,6 +116,128 @@ def generate_reference():
 #### Subtarea 3.3.1: Implementar respuestas HTTP estándar
 #### Subtarea 3.3.2: Crear middleware de manejo de excepciones
 #### Subtarea 3.3.3: Validación de entrada con mensajes descriptivos
+
+## FASE 3B: FUNCIONALIDAD DE DUPLICACIÓN DE DISPOSITIVOS (Prioridad Media)
+
+### 3B.1 Backend - Lógica de Duplicación
+
+#### Subtarea 3B.1.1: Implementar método duplicate() en modelo Device
+```python
+@classmethod
+def duplicate(cls, device_id, count):
+    """
+    Duplica un dispositivo n veces
+    Args:
+        device_id: ID del dispositivo a duplicar
+        count: Número de duplicados a crear
+    Returns:
+        Lista de dispositivos duplicados
+    """
+    # Obtener dispositivo original
+    # Validar que existe y count > 0
+    # Para cada duplicado:
+    #   - Copiar todos los campos excepto id, reference, created_at
+    #   - Generar nombre incremental: "Original Name X"
+    #   - Generar nueva referencia única
+    #   - Resetear current_row_index = 0
+    #   - Insertar en BD
+    # Retornar lista de duplicados creados
+```
+
+#### Subtarea 3B.1.2: Validaciones y reglas de negocio
+- Validar que el dispositivo original existe
+- Limitar count entre 1 y 50 duplicados
+- Verificar que los nombres generados no excedan límites de BD
+- Manejar errores de duplicación (referencias duplicadas, etc.)
+
+### 3B.2 Frontend - Interfaz de Duplicación
+
+#### Subtarea 3B.2.1: Agregar botón "Duplicar" en tarjetas de dispositivos
+```html
+<!-- En cada device-card -->
+<div class="device-actions">
+    <button onclick="viewDevice(${device.id})" class="btn btn-primary">Ver Detalle</button>
+    <button onclick="showDuplicateModal(${device.id})" class="btn btn-secondary">🔄 Duplicar</button>
+</div>
+```
+
+#### Subtarea 3B.2.2: Implementar modal de duplicación
+```html
+<div id="duplicate-device-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🔄 Duplicar Dispositivo</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>¿Cuántas copias deseas crear de "<span id="device-name-to-duplicate"></span>"?</p>
+            <div class="form-group">
+                <label for="duplicate-count">Número de duplicados:</label>
+                <input type="number" id="duplicate-count" min="1" max="50" value="1">
+            </div>
+            <div class="duplicate-preview">
+                <h4>Vista previa de nombres:</h4>
+                <ul id="duplicate-names-preview"></ul>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="btn-confirm-duplicate" class="btn btn-primary">Duplicar</button>
+            <button id="btn-cancel-duplicate" class="btn btn-secondary">Cancelar</button>
+        </div>
+    </div>
+</div>
+```
+
+#### Subtarea 3B.2.3: Implementar JavaScript para duplicación
+```javascript
+// Funciones principales:
+// - showDuplicateModal(deviceId)
+// - updateDuplicatePreview()
+// - confirmDuplicateDevice()
+// - API.duplicateDevice(deviceId, count)
+```
+
+### 3B.3 Especificaciones Técnicas
+
+#### Campos que se duplican (copia exacta):
+- `name` → con sufijo incremental " 1", " 2", etc.
+- `description` → idéntica
+- `device_type` → idéntica (WebApp/Sensor)
+- `csv_data` → copia completa del JSON
+- `transmission_frequency` → idéntica
+- `selected_connection_id` → idéntica
+- `transmission_enabled` → idéntica
+
+#### Campos únicos generados:
+- `id` → auto-increment de BD
+- `reference` → nueva referencia alfanumérica única
+- `created_at` → timestamp actual
+- `updated_at` → timestamp actual
+- `current_row_index` → resetear a 0
+- `last_transmission` → NULL
+
+#### Ejemplo de respuesta API:
+```json
+{
+  "original_device_id": 1,
+  "original_device_name": "Sensor de Temperatura",
+  "duplicates_created": 3,
+  "duplicated_devices": [
+    {
+      "id": 15,
+      "name": "Sensor de Temperatura 1",
+      "reference": "ABC123XY",
+      "description": "Dispositivo IoT para monitoreo..."
+    },
+    {
+      "id": 16,
+      "name": "Sensor de Temperatura 2", 
+      "reference": "DEF456ZW",
+      "description": "Dispositivo IoT para monitoreo..."
+    }
+  ]
+}
+```
 
 ## FASE 4: FRONTEND (Prioridad Alta)
 
@@ -1971,6 +2104,7 @@ class ProjectTransmissionController {
 - Upload y procesamiento de archivos CSV
 - Tipología: WebApp (envío completo) vs Sensor (envío secuencial)
 - Sistema de referencias alfanuméricas automáticas
+- **Duplicación masiva de dispositivos con configuración completa**
 
 ### **Sistema de Conexiones Externas**
 - Soporte para MQTT (Mosquitto) y HTTPS (REST API)

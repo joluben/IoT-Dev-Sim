@@ -232,6 +232,62 @@ class Device:
         """Obtiene el ID de la conexión por defecto del dispositivo"""
         return self.selected_connection_id
 
+    @classmethod
+    def duplicate(cls, device_id, count):
+        """
+        Duplica un dispositivo n veces
+        Args:
+            device_id: ID del dispositivo a duplicar
+            count: Número de duplicados a crear
+        Returns:
+            Lista de dispositivos duplicados
+        """
+        # Validaciones
+        if count < 1 or count > 50:
+            raise ValueError("El número de duplicados debe estar entre 1 y 50")
+        
+        # Obtener dispositivo original
+        original_device = cls.get_by_id(device_id)
+        if not original_device:
+            raise ValueError(f"Dispositivo con ID {device_id} no encontrado")
+        
+        duplicated_devices = []
+        
+        for i in range(1, count + 1):
+            # Generar nueva referencia única
+            new_reference = cls.generate_reference()
+            while cls.get_by_reference(new_reference):
+                new_reference = cls.generate_reference()
+            
+            # Generar nombre incremental
+            new_name = f"{original_device.name} {i}"
+            
+            # Crear dispositivo duplicado
+            duplicate_id = execute_insert('''
+                INSERT INTO devices (
+                    reference, name, description, csv_data, device_type,
+                    transmission_frequency, transmission_enabled, current_row_index,
+                    selected_connection_id, last_transmission
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', [
+                new_reference,
+                new_name,
+                original_device.description,
+                original_device.csv_data,  # Copia completa del CSV
+                original_device.device_type,
+                original_device.transmission_frequency,
+                original_device.transmission_enabled,
+                0,  # Resetear current_row_index a 0
+                original_device.selected_connection_id,
+                None  # Resetear last_transmission
+            ])
+            
+            # Obtener el dispositivo duplicado y agregarlo a la lista
+            duplicated_device = cls.get_by_id(duplicate_id)
+            duplicated_devices.append(duplicated_device)
+        
+        return duplicated_devices
+
 
 class EncryptionManager:
     """Gestor de encriptación para credenciales sensibles"""

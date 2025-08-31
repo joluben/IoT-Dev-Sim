@@ -45,3 +45,41 @@ def get_device(device_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/devices/<int:device_id>/duplicate', methods=['POST'])
+def duplicate_device(device_id):
+    """Duplicar un dispositivo n veces"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'count' not in data:
+            return jsonify({'error': 'El campo count es requerido'}), 400
+        
+        count = data['count']
+        
+        # Validar que count sea un número entero válido
+        if not isinstance(count, int) or count < 1 or count > 50:
+            return jsonify({'error': 'El número de duplicados debe estar entre 1 y 50'}), 400
+        
+        # Obtener dispositivo original para incluir en respuesta
+        original_device = Device.get_by_id(device_id)
+        if not original_device:
+            return jsonify({'error': 'Dispositivo no encontrado'}), 404
+        
+        # Duplicar dispositivo
+        duplicated_devices = Device.duplicate(device_id, count)
+        
+        # Preparar respuesta
+        response = {
+            'original_device_id': device_id,
+            'original_device_name': original_device.name,
+            'duplicates_created': len(duplicated_devices),
+            'duplicated_devices': [device.to_dict() for device in duplicated_devices]
+        }
+        
+        return jsonify(response), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

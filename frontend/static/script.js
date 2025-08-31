@@ -1,6 +1,9 @@
 // API Configuration
 // Use relative base so Nginx can proxy /api to backend container
-const API_BASE = '/api';
+// For development testing, use direct backend URL
+const API_BASE = window.location.hostname === 'localhost' && window.location.port === '8080' 
+    ? 'http://127.0.0.1:5000/api' 
+    : '/api';
 
 // Global variables
 let devices = [];
@@ -161,6 +164,16 @@ const API = {
     // Transmission history API
     async getTransmissionHistory(deviceId, limit = 20) {
         const response = await fetch(`${API_BASE}/devices/${deviceId}/transmission-history?limit=${limit}`);
+        return response.json();
+    },
+
+    // Device duplication API
+    async duplicateDevice(deviceId, count) {
+        const response = await fetch(`${API_BASE}/devices/${deviceId}/duplicate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: count })
+        });
         return response.json();
     },
 
@@ -1205,6 +1218,9 @@ function renderDevices(devices) {
             <div class="device-actions">
                 <button class="btn btn-primary btn-small" onclick="viewDevice(${device.id})">
                     Ver Detalle
+                </button>
+                <button class="btn btn-secondary btn-small" onclick="showDuplicateModal(${device.id})">
+                    Duplicar
                 </button>
             </div>
         </div>
@@ -2630,6 +2646,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-add-devices-to-project').addEventListener('click', showAddDevicesModal);
     document.getElementById('btn-confirm-add-devices').addEventListener('click', addSelectedDevicesToProject);
     document.getElementById('btn-cancel-add-devices').addEventListener('click', hideAddDevicesModal);
+
+    // Device duplication event listeners
+    document.getElementById('duplicate-count').addEventListener('input', updateDuplicatePreview);
+    document.getElementById('btn-confirm-duplicate').addEventListener('click', confirmDuplicateDevice);
+    document.getElementById('btn-cancel-duplicate').addEventListener('click', hideDuplicateModal);
 });
 
 // Project CRUD functions
@@ -2679,11 +2700,99 @@ async function deleteProject(projectId) {
 // Initialize visualization tabs
 // (Device analytics/dashboard removed by design)
 
+// Device Duplication Functions
+let currentDeviceForDuplication = null;
+
+async function showDuplicateModal(deviceId) {
+    currentDeviceForDuplication = deviceId;
+    
+    // Find device in current devices list to get name
+    let device = devices.find(d => d.id === deviceId);
+    
+    // If device not found in current array, fetch it from API
+    if (!device) {
+        try {
+            device = await API.getDevice(deviceId);
+        } catch (error) {
+            console.error('Error fetching device:', error);
+            showNotification('Error al cargar dispositivo', 'error');
+            return;
+        }
+    }
+    
+    if (!device) {
+        showNotification('Dispositivo no encontrado', 'error');
+        return;
+    }
+    
+    console.log('Found device for duplication:', device.name);
+    document.getElementById('device-name-to-duplicate').textContent = device.name;
+    document.getElementById('duplicate-count').value = 1;
+    updateDuplicatePreview();
+    
+    document.getElementById('duplicate-device-modal').classList.add('active');
+}
+
+function hideDuplicateModal() {
+    document.getElementById('duplicate-device-modal').classList.remove('active');
+    currentDeviceForDuplication = null;
+}
+
+function updateDuplicatePreview() {
+    const count = parseInt(document.getElementById('duplicate-count').value) || 1;
+    
+    // Get device name from the modal display instead of searching the array
+    const deviceNameElement = document.getElementById('device-name-to-duplicate');
+    const deviceName = deviceNameElement ? deviceNameElement.textContent : 'Dispositivo';
+    
+    const previewList = document.getElementById('duplicate-names-preview');
+    previewList.innerHTML = '';
+    
+    for (let i = 1; i <= Math.min(count, 50); i++) {
+        const li = document.createElement('li');
+        li.textContent = `${deviceName} ${i}`;
+        previewList.appendChild(li);
+    }
+}
+
+async function confirmDuplicateDevice() {
+    if (!currentDeviceForDuplication) return;
+    
+    const count = parseInt(document.getElementById('duplicate-count').value);
+    
+    if (!count || count < 1 || count > 50) {
+        showNotification('El número de duplicados debe estar entre 1 y 50', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('Duplicando dispositivo...', 'info');
+        
+        const result = await API.duplicateDevice(currentDeviceForDuplication, count);
+        
+        hideDuplicateModal();
+        
+        showNotification(
+            `Dispositivo duplicado exitosamente. ${result.duplicates_created} copias creadas.`,
+            'success'
+        );
+        
+        // Reload devices list to show new duplicates
+        loadDevices();
+        
+    } catch (error) {
+        console.error('Error duplicating device:', error);
+        showNotification('Error duplicando dispositivo: ' + error.message, 'error');
+    }
+}
+
 // Global functions for onclick handlers
 window.viewDevice = viewDevice;
 window.viewConnection = viewConnection;
 window.editConnection = editConnection;
 window.testConnection = testConnection;
+window.showDuplicateModal = showDuplicateModal;
+window.hideDuplicateModal = hideDuplicateModal;
 window.deleteConnection = deleteConnection;
 window.showProjectDetail = showProjectDetail;
 window.editProject = editProject;
