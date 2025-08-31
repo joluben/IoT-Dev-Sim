@@ -530,6 +530,24 @@
             </div>
         </div>
 
+        <!-- Modal de Eliminación de Dispositivos -->
+        <div id="delete-device-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🗑️ Eliminar Dispositivo</h3>
+                    <button class="modal-close" onclick="hideDeleteModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Vas a eliminar el dispositivo "<span id="device-name-to-delete"></span>".</p>
+                    <p><strong>Esta acción es permanente y no se podrá recuperar.</strong> ¿Deseas continuar?</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-confirm-delete" class="btn btn-danger">Eliminar</button>
+                    <button id="btn-cancel-delete" class="btn btn-secondary" onclick="hideDeleteModal()">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal de Resultados de Operaciones -->
         <div id="operation-results-modal" class="modal">
             <div class="modal-content">

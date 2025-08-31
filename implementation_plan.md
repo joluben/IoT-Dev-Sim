@@ -96,6 +96,22 @@ def generate_reference():
 # Retornar lista de dispositivos duplicados creados
 ```
 
+#### Subtarea 3.1.5: DELETE /api/devices/<id>
+```python
+# Eliminar un dispositivo de forma permanente
+# Reglas:
+# - Mostrar confirmación en frontend antes de llamar a esta ruta
+# - Desvincular el dispositivo de proyectos, conexiones activas y tareas programadas
+# - Detener cualquier transmisión activa relacionada con el dispositivo
+# - Eliminar de la base de datos el registro del dispositivo
+# - Mantener historial de transmisiones (opcional) o eliminarlo según configuración
+
+# Respuestas esperadas:
+# 200 OK -> {"deleted": true, "device_id": <id>}
+# 404 Not Found si el dispositivo no existe
+# 409 Conflict si no se pudo detener una transmisión/scheduler asociado (con detalle)
+```
+
 ### 3.2 Rutas de Upload
 
 #### Subtarea 3.2.1: POST /api/devices/<id>/upload
@@ -253,6 +269,28 @@ def duplicate(cls, device_id, count):
 #### Subtarea 4.1.2: Implementar navegación SPA con JavaScript
 #### Subtarea 4.1.3: Crear templates para cada vista
 
+#### Subtarea 4.1.4: Modal de confirmación de eliminación
+```html
+<div id="delete-device-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>🗑️ Eliminar Dispositivo</h3>
+      <button class="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Vas a eliminar el dispositivo "<span id="device-name-to-delete"></span>".
+      Esta acción es permanente y no se podrá recuperar. ¿Deseas continuar?</p>
+    </div>
+    <div class="modal-footer">
+      <button id="btn-confirm-delete" class="btn btn-danger">Eliminar</button>
+      <button id="btn-cancel-delete" class="btn btn-secondary">Cancelar</button>
+    </div>
+  </div>
+  <!-- Considerar reutilizar estilos de .modal existente (.modal.active para visibilidad) -->
+  <!-- Requisitos de accesibilidad: focus trap y cierre con ESC -->
+</div>
+```
+
 ### 4.2 Estilos CSS
 #### Subtarea 4.2.1: Implementar CSS Grid/Flexbox para layout
 #### Subtarea 4.2.2: Crear componentes reutilizables (botones, formularios, tablas)
@@ -276,6 +314,48 @@ const API = {
 #### Subtarea 4.3.5: Desarrollar previsualización CSV (tabla HTML)
 #### Subtarea 4.3.6: Desarrollar previsualización JSON (formato legible)
 #### Subtarea 4.3.7: Implementar previsualización CSV y JSON al ver el detalle de un dispositivo
+
+#### Subtarea 4.3.8: Eliminar dispositivo (frontend)
+```javascript
+// Nuevos métodos en el módulo API
+const API = {
+  // ...existentes,
+  deleteDevice: (id) => fetch(`${BASE_URL}/api/devices/${id}`, { method: 'DELETE' })
+};
+
+// Flujo principal
+// - showDeleteModal(deviceId):
+//     * Cargar nombre del dispositivo (desde array en memoria o GET puntual si no está en caché)
+//     * Guardar deviceId en estado temporal
+//     * Abrir modal (#delete-device-modal.classList.add('active'))
+// - hideDeleteModal():
+//     * Cerrar modal y limpiar estado temporal
+// - confirmDeleteDevice():
+//     * Llamar API.deleteDevice(deviceId)
+//     * Si OK: cerrar modal, mostrar notificación de éxito, refrescar lista (getDevices y re-render)
+//     * Si error: notificación de error con detalle
+
+// UI
+// - Agregar botón "🗑️ Eliminar" en cada tarjeta de dispositivo junto a "Ver Detalle" y "Duplicar"
+//   <button onclick="showDeleteModal(${device.id})" class="btn btn-danger">🗑️ Eliminar</button>
+```
+
+#### Consideraciones de UX
+* **Confirmación explícita**: Mensaje claro de irreversibilidad.
+* **Estados y feedback**: Deshabilitar botón mientras se elimina, spinner y notificaciones.
+* **Accesibilidad**: Soporte teclado, foco en botón primario, cierre con ESC.
+
+#### Impacto en Datos y Lógica
+* **Desvinculación**: Anular `selected_connection_id`, relaciones con proyectos y detener schedulers.
+* **Transmisiones activas**: Parar trabajos en curso antes de borrar.
+* **Historial**: Definir si se mantiene `device_transmissions` como registro o se elimina en cascada.
+* **Integridad referencial**: FK con `ON DELETE SET NULL` o `ON DELETE CASCADE` según tabla.
+
+#### Pruebas (end-to-end y unidad)
+* Backend: DELETE inexistente -> 404; existente -> 200 y no retorna en GET /api/devices.
+* Backend: Simular transmisión activa y verificar 409 o parada correcta antes de eliminar.
+* Frontend: Modal aparece con nombre correcto; Cancelar no elimina; Confirmar elimina y refresca lista.
+* Frontend: Manejo de errores y estados (botones deshabilitados durante petición).
 
 ## FASE 5: CONTAINERIZACIÓN (Prioridad Media)
 

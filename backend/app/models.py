@@ -288,6 +288,36 @@ class Device:
         
         return duplicated_devices
 
+    @classmethod
+    def delete(cls, device_id):
+        """
+        Elimina un dispositivo de forma permanente
+        Args:
+            device_id: ID del dispositivo a eliminar
+        Returns:
+            bool: True si se eliminó correctamente, False en caso contrario
+        """
+        try:
+            # Verificar que el dispositivo existe
+            device = cls.get_by_id(device_id)
+            if not device:
+                return False
+            
+            # TODO: Detener transmisiones activas y schedulers relacionados
+            # TODO: Desvincular de proyectos (actualizar current_project_id a NULL)
+            
+            # Limpiar relaciones con proyectos
+            execute_insert('DELETE FROM project_devices WHERE device_id = ?', [device_id])
+            
+            # Eliminar el dispositivo
+            execute_insert('DELETE FROM devices WHERE id = ?', [device_id])
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error deleting device {device_id}: {e}")
+            return False
+
 
 class EncryptionManager:
     """Gestor de encriptación para credenciales sensibles"""

@@ -122,6 +122,13 @@ const API = {
         return response.json();
     },
 
+    async deleteDevice(id) {
+        const response = await fetch(`${API_BASE}/devices/${id}`, {
+            method: 'DELETE'
+        });
+        return response;
+    },
+
     async testConnection(id) {
         const response = await fetch(`${API_BASE}/connections/${id}/test`, {
             method: 'POST'
@@ -1221,6 +1228,9 @@ function renderDevices(devices) {
                 </button>
                 <button class="btn btn-secondary btn-small" onclick="showDuplicateModal(${device.id})">
                     Duplicar
+                </button>
+                <button class="btn btn-danger btn-small" onclick="showDeleteModal(${device.id})">
+                    🗑️ Eliminar
                 </button>
             </div>
         </div>
@@ -2651,6 +2661,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('duplicate-count').addEventListener('input', updateDuplicatePreview);
     document.getElementById('btn-confirm-duplicate').addEventListener('click', confirmDuplicateDevice);
     document.getElementById('btn-cancel-duplicate').addEventListener('click', hideDuplicateModal);
+
+    // Device deletion event listeners
+    document.getElementById('btn-confirm-delete').addEventListener('click', confirmDeleteDevice);
+    document.getElementById('btn-cancel-delete').addEventListener('click', hideDeleteModal);
 });
 
 // Project CRUD functions
@@ -2786,6 +2800,82 @@ async function confirmDuplicateDevice() {
     }
 }
 
+// Delete Device Modal Functions
+let currentDeviceForDeletion = null;
+
+async function showDeleteModal(deviceId) {
+    currentDeviceForDeletion = deviceId;
+    
+    // Find device in current devices list to get name
+    let device = devices.find(d => d.id === deviceId);
+    
+    // If device not found in current array, fetch it from API
+    if (!device) {
+        try {
+            device = await API.getDevice(deviceId);
+        } catch (error) {
+            console.error('Error fetching device:', error);
+            showNotification('Error al cargar dispositivo', 'error');
+            return;
+        }
+    }
+    
+    if (!device) {
+        showNotification('Dispositivo no encontrado', 'error');
+        return;
+    }
+    
+    console.log('Found device for deletion:', device.name);
+    document.getElementById('device-name-to-delete').textContent = device.name;
+    
+    document.getElementById('delete-device-modal').classList.add('active');
+}
+
+function hideDeleteModal() {
+    document.getElementById('delete-device-modal').classList.remove('active');
+    currentDeviceForDeletion = null;
+}
+
+async function confirmDeleteDevice() {
+    if (!currentDeviceForDeletion) {
+        showNotification('Error: No hay dispositivo seleccionado para eliminar', 'error');
+        return;
+    }
+
+    // Disable buttons during deletion
+    const confirmBtn = document.getElementById('btn-confirm-delete');
+    const cancelBtn = document.getElementById('btn-cancel-delete');
+    const originalConfirmText = confirmBtn.textContent;
+    
+    confirmBtn.disabled = true;
+    cancelBtn.disabled = true;
+    confirmBtn.textContent = 'Eliminando...';
+
+    try {
+        const response = await API.deleteDevice(currentDeviceForDeletion);
+        
+        if (response.ok) {
+            const result = await response.json();
+            hideDeleteModal();
+            showNotification('Dispositivo eliminado correctamente', 'success');
+            
+            // Refresh devices list
+            await loadDevices();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Error al eliminar dispositivo', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting device:', error);
+        showNotification('Error de conexión al eliminar dispositivo', 'error');
+    } finally {
+        // Re-enable buttons
+        confirmBtn.disabled = false;
+        cancelBtn.disabled = false;
+        confirmBtn.textContent = originalConfirmText;
+    }
+}
+
 // Global functions for onclick handlers
 window.viewDevice = viewDevice;
 window.viewConnection = viewConnection;
@@ -2793,6 +2883,8 @@ window.editConnection = editConnection;
 window.testConnection = testConnection;
 window.showDuplicateModal = showDuplicateModal;
 window.hideDuplicateModal = hideDuplicateModal;
+window.showDeleteModal = showDeleteModal;
+window.hideDeleteModal = hideDeleteModal;
 window.deleteConnection = deleteConnection;
 window.showProjectDetail = showProjectDetail;
 window.editProject = editProject;

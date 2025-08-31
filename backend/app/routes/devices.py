@@ -83,3 +83,26 @@ def duplicate_device(device_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/devices/<int:device_id>', methods=['DELETE'])
+def delete_device(device_id):
+    """Eliminar un dispositivo de forma permanente"""
+    try:
+        # Verificar que el dispositivo existe
+        device = Device.get_by_id(device_id)
+        if not device:
+            return jsonify({'error': 'Dispositivo no encontrado'}), 404
+        
+        # TODO: Detener transmisiones activas y schedulers relacionados
+        # TODO: Desvincular de proyectos y conexiones
+        
+        # Eliminar dispositivo
+        success = Device.delete(device_id)
+        
+        if success:
+            return jsonify({'deleted': True, 'device_id': device_id}), 200
+        else:
+            return jsonify({'error': 'No se pudo eliminar el dispositivo'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
