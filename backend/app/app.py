@@ -8,6 +8,7 @@ from .routes.devices import devices_bp
 from .routes.upload import upload_bp
 from .routes.connections import connections_bp
 from .routes.transmissions import transmissions_bp
+from .routes.projects import projects_bp
 from .scheduler import init_scheduler
 
 def create_app():
@@ -45,6 +46,15 @@ def create_app():
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(connections_bp)
     app.register_blueprint(transmissions_bp)
+    app.register_blueprint(projects_bp)
+
+    # Depuración: listar rutas registradas al iniciar la app
+    try:
+        for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
+            methods = ','.join(sorted(m for m in rule.methods if m not in ('HEAD', 'OPTIONS')))
+            app.logger.info(f"ROUTE {methods} {rule.rule}")
+    except Exception:
+        pass
 
     # WebSocket para actualizaciones de transmisiones
     @sock.route('/ws/transmissions')

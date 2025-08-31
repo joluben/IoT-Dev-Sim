@@ -207,6 +207,31 @@ class Device:
         self.last_transmission = datetime.utcnow()
         execute_insert('UPDATE devices SET last_transmission = ? WHERE id = ?', [self.last_transmission, self.id])
 
+    @classmethod
+    def get_unassigned(cls):
+        """Obtiene dispositivos sin proyecto asignado"""
+        rows = execute_query('''
+            SELECT * FROM devices 
+            WHERE current_project_id IS NULL 
+            ORDER BY created_at DESC
+        ''')
+        return [cls._from_row(row) for row in rows]
+
+    def has_active_connections(self):
+        """Verifica si el dispositivo tiene conexiones activas disponibles"""
+        if self.selected_connection_id:
+            connection = Connection.get_by_id(self.selected_connection_id)
+            return connection and connection.is_active
+        return False
+
+    def has_csv_data(self):
+        """Verifica si el dispositivo tiene datos CSV cargados"""
+        return bool(self.csv_data)
+
+    def get_default_connection_id(self):
+        """Obtiene el ID de la conexión por defecto del dispositivo"""
+        return self.selected_connection_id
+
 
 class EncryptionManager:
     """Gestor de encriptación para credenciales sensibles"""
@@ -455,3 +480,220 @@ class ConnectionTest:
             'error_message': self.error_message,
             'tested_at': self.tested_at
         }
+
+
+class Project:
+    def __init__(self, id=None, name=None, description=None, is_active=True, 
+                 transmission_status='INACTIVE', created_at=None, updated_at=None):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.is_active = is_active
+        self.transmission_status = transmission_status
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    @classmethod
+    def create(cls, name, description=None):
+        """Crea un nuevo proyecto"""
+        if cls.name_exists(name):
+            raise ValueError("Ya existe un proyecto con ese nombre")
+        
+        project_id = execute_insert('''
+            INSERT INTO projects (name, description, is_active, transmission_status)
+            VALUES (?, ?, ?, ?)
+        ''', [name, description, True, 'INACTIVE'])
+        
+        return cls.get_by_id(project_id)
+
+    @classmethod
+    def get_all(cls):
+        """Obtiene todos los proyectos"""
+        rows = execute_query('SELECT * FROM projects ORDER BY created_at DESC')
+        return [cls._from_row(row) for row in rows]
+
+    @classmethod
+    def get_by_id(cls, project_id):
+        """Obtiene un proyecto por ID"""
+        rows = execute_query('SELECT * FROM projects WHERE id = ?', [project_id])
+        return cls._from_row(rows[0]) if rows else None
+
+    @classmethod
+    def name_exists(cls, name, exclude_id=None):
+        """Verifica si ya existe un proyecto con el nombre dado"""
+        query = 'SELECT COUNT(*) as count FROM projects WHERE name = ?'
+        params = [name]
+        
+        if exclude_id:
+            query += ' AND id != ?'
+            params.append(exclude_id)
+        
+        result = execute_query(query, params)
+        return result[0]['count'] > 0
+
+    def update(self, name=None, description=None, is_active=None, transmission_status=None):
+        """Actualiza el proyecto"""
+        fields = []
+        values = []
+        
+        if name is not None:
+            if Project.name_exists(name, exclude_id=self.id):
+                raise ValueError("Ya existe un proyecto con ese nombre")
+            fields.append("name = ?")
+            values.append(name)
+            self.name = name
+        
+        if description is not None:
+            fields.append("description = ?")
+            values.append(description)
+            self.description = description
+        
+        if is_active is not None:
+            fields.append("is_active = ?")
+            values.append(is_active)
+            self.is_active = is_active
+        
+        if transmission_status is not None:
+            fields.append("transmission_status = ?")
+            values.append(transmission_status)
+            self.transmission_status = transmission_status
+        
+        if fields:
+            fields.append("updated_at = CURRENT_TIMESTAMP")
+            query = f"UPDATE projects SET {', '.join(fields)} WHERE id = ?"
+            values.append(self.id)
+            execute_insert(query, values)
+
+    def delete(self):
+        """Elimina el proyecto y desvincula todos los dispositivos"""
+        # Las relaciones project_devices se eliminan automáticamente por CASCADE
+        execute_insert('DELETE FROM projects WHERE id = ?', [self.id])
+
+    def add_device(self, device_id):
+        """Agregar dispositivo al proyecto"""
+        if self.has_device(device_id):
+            return False
+        
+        try:
+            execute_insert('''
+                INSERT INTO project_devices (project_id, device_id)
+                VALUES (?, ?)
+            ''', [self.id, device_id])
+            
+            # Actualizar current_project_id en el dispositivo
+            execute_insert('''
+                UPDATE devices SET current_project_id = ? WHERE id = ?
+            ''', [self.id, device_id])
+            
+            return True
+        except Exception:
+            return False
+
+    def remove_device(self, device_id):
+        """Remover dispositivo del proyecto"""
+        if not self.has_device(device_id):
+            return False
+        
+        execute_insert('''
+            DELETE FROM project_devices WHERE project_id = ? AND device_id = ?
+        ''', [self.id, device_id])
+        
+        # Limpiar current_project_id en el dispositivo
+        execute_insert('''
+            UPDATE devices SET current_project_id = NULL WHERE id = ?
+        ''', [device_id])
+        
+        return True
+
+    def has_device(self, device_id):
+        """Verificar si dispositivo pertenece al proyecto"""
+        result = execute_query('''
+            SELECT COUNT(*) as count FROM project_devices 
+            WHERE project_id = ? AND device_id = ?
+        ''', [self.id, device_id])
+        return result[0]['count'] > 0
+
+    def get_devices(self):
+        """Obtener todos los dispositivos del proyecto"""
+        rows = execute_query('''
+            SELECT d.* FROM devices d
+            INNER JOIN project_devices pd ON d.id = pd.device_id
+            WHERE pd.project_id = ?
+            ORDER BY pd.assigned_at DESC
+        ''', [self.id])
+        return [Device._from_row(row) for row in rows]
+
+    def get_devices_count(self):
+        """Obtener cantidad de dispositivos en el proyecto"""
+        result = execute_query('''
+            SELECT COUNT(*) as count FROM project_devices WHERE project_id = ?
+        ''', [self.id])
+        return result[0]['count']
+
+    def validate_transmission_requirements(self):
+        """Validar que dispositivos tengan conexiones configuradas"""
+        issues = []
+        devices = self.get_devices()
+        
+        for device in devices:
+            # Verificar si tiene datos CSV
+            if not device.csv_data:
+                issues.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'issue': 'NO_CSV_DATA'
+                })
+            
+            # Verificar si tiene conexión seleccionada
+            if not device.selected_connection_id:
+                issues.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'issue': 'NO_CONNECTION_SELECTED'
+                })
+            else:
+                # Verificar si la conexión existe y está activa
+                connection = Connection.get_by_id(device.selected_connection_id)
+                if not connection or not connection.is_active:
+                    issues.append({
+                        'device_id': device.id,
+                        'device_name': device.name,
+                        'issue': 'INACTIVE_CONNECTION'
+                    })
+        
+        return issues
+
+    @classmethod
+    def _from_row(cls, row):
+        """Crea una instancia de Project desde una fila de BD"""
+        return cls(
+            id=row['id'],
+            name=row['name'],
+            description=row['description'],
+            is_active=bool(row['is_active']),
+            transmission_status=row['transmission_status'],
+            created_at=row['created_at'],
+            updated_at=row['updated_at']
+        )
+
+    def to_dict(self, include_devices=False):
+        """Convierte el proyecto a diccionario para JSON"""
+        result = {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'is_active': self.is_active,
+            'transmission_status': self.transmission_status,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'devices_count': self.get_devices_count()
+        }
+        
+        if include_devices:
+            result['devices'] = [device.to_dict() for device in self.get_devices()]
+        
+        return result
+
+    def to_dict_detailed(self):
+        """Convierte el proyecto a diccionario detallado incluyendo dispositivos"""
+        return self.to_dict(include_devices=True)

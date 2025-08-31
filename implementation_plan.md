@@ -1202,49 +1202,756 @@ websocket-client==1.6.1
 sqlalchemy==1.4.46  # Para persistencia de jobs en APScheduler
 ```
 
-## FASE 8: TESTING (Prioridad Media)
+## FASE 8: SISTEMA DE GESTIÓN DE PROYECTOS 
 
-### 8.1 Tests Backend
-#### Subtarea 8.1.1: Tests unitarios para modelos
-#### Subtarea 8.1.2: Tests para rutas API
-#### Subtarea 8.1.3: Tests para procesamiento CSV
-#### Subtarea 8.1.4: Tests de integración
-#### Subtarea 8.1.5: Tests para sistema de conexiones
+### 8.1 Análisis y Diseño del Sistema de Proyectos
+
+#### Descripción del Requerimiento
+El sistema debe permitir la gestión completa de proyectos que actúan como contenedores organizacionales para agrupar dispositivos relacionados. Los proyectos facilitan la administración masiva de dispositivos, permitiendo operaciones de transmisión coordinadas y seguimiento centralizado del historial de transmisiones.
+
+**Características Principales:**
+- **Gestión CRUD**: Crear, leer, actualizar y eliminar proyectos
+- **Agrupación de Dispositivos**: Un proyecto puede contener múltiples dispositivos
+- **Selección Flexible**: Asignar/desasignar dispositivos de proyectos
+- **Control Masivo**: Iniciar/pausar/parar transmisiones de todos los dispositivos del proyecto
+- **Historial Centralizado**: Vista unificada del historial de transmisiones por proyecto
+- **Desvinculación Segura**: Al eliminar proyecto, dispositivos quedan desvinculados de ese proyecto
+
+#### Subtarea 8.1.1: Definir esquema de base de datos para proyectos
+```sql
+-- Tabla de proyectos
+CREATE TABLE projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  transmission_status TEXT DEFAULT 'INACTIVE' CHECK(transmission_status IN ('INACTIVE', 'ACTIVE', 'PAUSED')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de relación muchos a muchos: proyecto-dispositivo
+CREATE TABLE project_devices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  device_id INTEGER NOT NULL,
+  assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+  FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE,
+  UNIQUE(project_id, device_id)
+);
+
+-- Índices para optimizar consultas
+CREATE INDEX idx_project_devices_project ON project_devices(project_id);
+CREATE INDEX idx_project_devices_device ON project_devices(device_id);
+CREATE INDEX idx_projects_status ON projects(transmission_status);
+
+-- Actualizar tabla devices para mostrar proyecto actual (opcional)
+ALTER TABLE devices ADD COLUMN current_project_id INTEGER;
+ALTER TABLE devices ADD FOREIGN KEY (current_project_id) REFERENCES projects (id) ON DELETE SET NULL;
+```
+
+#### Subtarea 8.1.2: Diseñar estructura de datos para operaciones masivas
+```json
+// Estructura de respuesta para operaciones del proyecto
+{
+  "project_id": 1,
+  "project_name": "Sensores de Temperatura Campus",
+  "operation": "START_TRANSMISSION",
+  "total_devices": 15,
+  "successful_operations": 12,
+  "failed_operations": 3,
+  "results": [
+    {
+      "device_id": 1,
+      "device_name": "Sensor Edificio A",
+      "status": "SUCCESS",
+      "message": "Transmisión iniciada correctamente"
+    },
+    {
+      "device_id": 2,
+      "device_name": "Sensor Edificio B", 
+      "status": "FAILED",
+      "message": "No hay conexión configurada",
+      "error_code": "NO_CONNECTION"
+    }
+  ],
+  "execution_time": "2024-08-30T10:30:00Z"
+}
+```
+
+### 8.2 Modelos y Lógica de Negocio para Proyectos
+
+#### Subtarea 8.2.1: Crear clase Project en models.py
+```python
+class Project:
+    def __init__(self):
+        self.id = None
+        self.name = ""
+        self.description = ""
+        self.is_active = True
+        self.transmission_status = 'INACTIVE'
+        self.created_at = None
+        self.updated_at = None
+        self.devices = []
+    
+    def add_device(self, device_id):
+        """Agregar dispositivo al proyecto"""
+        if not self.has_device(device_id):
+            # Lógica para agregar relación en project_devices
+            return True
+        return False
+    
+    def remove_device(self, device_id):
+        """Remover dispositivo del proyecto"""
+        # Lógica para eliminar relación en project_devices
+        pass
+    
+    def has_device(self, device_id):
+        """Verificar si dispositivo pertenece al proyecto"""
+        pass
+    
+    def get_devices(self):
+        """Obtener todos los dispositivos del proyecto"""
+        pass
+    
+    def get_devices_count(self):
+        """Obtener cantidad de dispositivos en el proyecto"""
+        pass
+    
+    def validate_transmission_requirements(self):
+        """Validar que dispositivos tengan conexiones configuradas"""
+        issues = []
+        for device in self.get_devices():
+            if not device.has_active_connections():
+                issues.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'issue': 'NO_ACTIVE_CONNECTIONS'
+                })
+            if not device.has_csv_data():
+                issues.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'issue': 'NO_CSV_DATA'
+                })
+        return issues
+```
+
+#### Subtarea 8.2.2: Implementar gestor de operaciones masivas
+```python
+class ProjectOperationManager:
+    def __init__(self):
+        self.transmission_manager = TransmissionManager()
+        self.scheduler = TransmissionScheduler()
+    
+    def start_project_transmission(self, project_id, connection_id=None):
+        """Iniciar transmisión automática para todos los dispositivos del proyecto"""
+        project = Project.get_by_id(project_id)
+        if not project:
+            raise ValueError("Proyecto no encontrado")
+        
+        devices = project.get_devices()
+        results = []
+        successful = 0
+        failed = 0
+        
+        for device in devices:
+            try:
+                # Usar conexión específica o la primera disponible
+                target_connection = connection_id or device.get_default_connection_id()
+                
+                if not target_connection:
+                    results.append({
+                        'device_id': device.id,
+                        'device_name': device.name,
+                        'status': 'FAILED',
+                        'message': 'No hay conexión configurada'
+                    })
+                    failed += 1
+                    continue
+                
+                # Iniciar transmisión para el dispositivo
+                success = self.scheduler.schedule_transmission(device.id, target_connection, device.transmission_frequency)
+                
+                if success:
+                    results.append({
+                        'device_id': device.id,
+                        'device_name': device.name,
+                        'status': 'SUCCESS',
+                        'message': 'Transmisión iniciada correctamente'
+                    })
+                    successful += 1
+                else:
+                    results.append({
+                        'device_id': device.id,
+                        'device_name': device.name,
+                        'status': 'FAILED',
+                        'message': 'Error al programar transmisión'
+                    })
+                    failed += 1
+                    
+            except Exception as e:
+                results.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'status': 'FAILED',
+                    'message': str(e)
+                })
+                failed += 1
+        
+        # Actualizar estado del proyecto
+        if successful > 0:
+            project.transmission_status = 'ACTIVE'
+            project.save()
+        
+        return {
+            'total_devices': len(devices),
+            'successful_operations': successful,
+            'failed_operations': failed,
+            'results': results
+        }
+    
+    def pause_project_transmission(self, project_id):
+        """Pausar transmisiones de todos los dispositivos del proyecto"""
+        return self._execute_bulk_operation(project_id, 'PAUSE')
+    
+    def resume_project_transmission(self, project_id):
+        """Reanudar transmisiones de todos los dispositivos del proyecto"""
+        return self._execute_bulk_operation(project_id, 'RESUME')
+    
+    def stop_project_transmission(self, project_id):
+        """Parar transmisiones de todos los dispositivos del proyecto"""
+        result = self._execute_bulk_operation(project_id, 'STOP')
+        
+        # Actualizar estado del proyecto
+        project = Project.get_by_id(project_id)
+        if project:
+            project.transmission_status = 'INACTIVE'
+            project.save()
+        
+        return result
+    
+    def _execute_bulk_operation(self, project_id, operation):
+        """Ejecutar operación masiva en dispositivos del proyecto"""
+        project = Project.get_by_id(project_id)
+        devices = project.get_devices()
+        results = []
+        successful = 0
+        failed = 0
+        
+        for device in devices:
+            try:
+                success = False
+                message = ""
+                
+                if operation == 'PAUSE':
+                    success = self.scheduler.pause_transmission(device.id, device.get_default_connection_id())
+                    message = "Transmisión pausada" if success else "Error al pausar transmisión"
+                elif operation == 'RESUME':
+                    success = self.scheduler.resume_transmission(device.id, device.get_default_connection_id())
+                    message = "Transmisión reanudada" if success else "Error al reanudar transmisión"
+                elif operation == 'STOP':
+                    success = self.scheduler.stop_transmission(device.id, device.get_default_connection_id())
+                    message = "Transmisión detenida" if success else "Error al detener transmisión"
+                
+                results.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'status': 'SUCCESS' if success else 'FAILED',
+                    'message': message
+                })
+                
+                if success:
+                    successful += 1
+                else:
+                    failed += 1
+                    
+            except Exception as e:
+                results.append({
+                    'device_id': device.id,
+                    'device_name': device.name,
+                    'status': 'FAILED',
+                    'message': str(e)
+                })
+                failed += 1
+        
+        return {
+            'total_devices': len(devices),
+            'successful_operations': successful,
+            'failed_operations': failed,
+            'results': results
+        }
+    
+    def get_project_transmission_history(self, project_id, limit=100, offset=0):
+        """Obtener historial de transmisiones de todos los dispositivos del proyecto"""
+        project = Project.get_by_id(project_id)
+        if not project:
+            return []
+        
+        device_ids = [device.id for device in project.get_devices()]
+        
+        # Query para obtener transmisiones de todos los dispositivos del proyecto
+        history = db.session.query(DeviceTransmission)\
+            .filter(DeviceTransmission.device_id.in_(device_ids))\
+            .order_by(DeviceTransmission.transmission_time.desc())\
+            .limit(limit)\
+            .offset(offset)\
+            .all()
+        
+        return [transmission.to_dict() for transmission in history]
+```
+
+### 8.3 API Backend para Gestión de Proyectos
+
+#### Subtarea 8.3.1: Rutas CRUD de proyectos
+```python
+# GET /api/projects - Listar todos los proyectos
+@app.route('/api/projects', methods=['GET'])
+def get_projects():
+    projects = Project.get_all()
+    return jsonify([project.to_dict() for project in projects])
+
+# POST /api/projects - Crear nuevo proyecto
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    data = request.get_json()
+    
+    # Validaciones
+    if not data.get('name'):
+        return jsonify({'error': 'Nombre del proyecto requerido'}), 400
+    
+    if Project.name_exists(data['name']):
+        return jsonify({'error': 'Ya existe un proyecto con ese nombre'}), 400
+    
+    project = Project()
+    project.name = data['name']
+    project.description = data.get('description', '')
+    project.save()
+    
+    return jsonify(project.to_dict()), 201
+
+# GET /api/projects/<id> - Obtener proyecto específico
+@app.route('/api/projects/<int:project_id>', methods=['GET'])
+def get_project(project_id):
+    project = Project.get_by_id(project_id)
+    if not project:
+        return jsonify({'error': 'Proyecto no encontrado'}), 404
+    
+    return jsonify(project.to_dict_detailed())
+
+# PUT /api/projects/<id> - Actualizar proyecto
+@app.route('/api/projects/<int:project_id>', methods=['PUT'])
+def update_project(project_id):
+    project = Project.get_by_id(project_id)
+    if not project:
+        return jsonify({'error': 'Proyecto no encontrado'}), 404
+    
+    data = request.get_json()
+    
+    if 'name' in data:
+        if Project.name_exists(data['name'], exclude_id=project_id):
+            return jsonify({'error': 'Ya existe un proyecto con ese nombre'}), 400
+        project.name = data['name']
+    
+    if 'description' in data:
+        project.description = data['description']
+    
+    project.save()
+    return jsonify(project.to_dict())
+
+# DELETE /api/projects/<id> - Eliminar proyecto
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    project = Project.get_by_id(project_id)
+    if not project:
+        return jsonify({'error': 'Proyecto no encontrado'}), 404
+    
+    # Parar transmisiones activas antes de eliminar
+    if project.transmission_status in ['ACTIVE', 'PAUSED']:
+        operation_manager = ProjectOperationManager()
+        operation_manager.stop_project_transmission(project_id)
+    
+    project.delete()  # Esto desvinculará automáticamente los dispositivos
+    return jsonify({'message': 'Proyecto eliminado correctamente'})
+```
+
+#### Subtarea 8.3.2: Rutas de gestión de dispositivos en proyectos
+```python
+# GET /api/projects/<id>/devices - Obtener dispositivos del proyecto
+@app.route('/api/projects/<int:project_id>/devices', methods=['GET'])
+def get_project_devices(project_id):
+    project = Project.get_by_id(project_id)
+    if not project:
+        return jsonify({'error': 'Proyecto no encontrado'}), 404
+    
+    devices = project.get_devices()
+    return jsonify([device.to_dict() for device in devices])
+
+# POST /api/projects/<id>/devices - Agregar dispositivos al proyecto
+@app.route('/api/projects/<int:project_id>/devices', methods=['POST'])
+def add_devices_to_project(project_id):
+    project = Project.get_by_id(project_id)
+    if not project:
+        return jsonify({'error': 'Proyecto no encontrado'}), 404
+    
+    data = request.get_json()
+    device_ids = data.get('device_ids', [])
+    
+    results = []
+    for device_id in device_ids:
+        device = Device.get_by_id(device_id)
+        if not device:
+            results.append({
+                'device_id': device_id,
+                'status': 'FAILED',
+                'message': 'Dispositivo no encontrado'
+            })
+            continue
+        
+        if project.add_device(device_id):
+            results.append({
+                'device_id': device_id,
+                'status': 'SUCCESS',
+                'message': 'Dispositivo agregado al proyecto'
+            })
+        else:
+            results.append({
+                'device_id': device_id,
+                'status': 'FAILED',
+                'message': 'Dispositivo ya pertenece al proyecto'
+            })
+    
+    return jsonify({'results': results})
+
+# DELETE /api/projects/<id>/devices/<device_id> - Remover dispositivo del proyecto
+@app.route('/api/projects/<int:project_id>/devices/<int:device_id>', methods=['DELETE'])
+def remove_device_from_project(project_id, device_id):
+    project = Project.get_by_id(project_id)
+    if not project:
+        return jsonify({'error': 'Proyecto no encontrado'}), 404
+    
+    if project.remove_device(device_id):
+        return jsonify({'message': 'Dispositivo removido del proyecto'})
+    else:
+        return jsonify({'error': 'Dispositivo no pertenece al proyecto'}), 400
+
+# GET /api/devices/unassigned - Dispositivos sin proyecto asignado
+@app.route('/api/devices/unassigned', methods=['GET'])
+def get_unassigned_devices():
+    devices = Device.get_unassigned()
+    return jsonify([device.to_dict() for device in devices])
+```
+
+#### Subtarea 8.3.3: Rutas de control masivo de transmisiones
+```python
+# POST /api/projects/<id>/start-transmission - Iniciar transmisiones del proyecto
+@app.route('/api/projects/<int:project_id>/start-transmission', methods=['POST'])
+def start_project_transmission(project_id):
+    data = request.get_json()
+    connection_id = data.get('connection_id')  # Opcional: usar conexión específica
+    
+    operation_manager = ProjectOperationManager()
+    result = operation_manager.start_project_transmission(project_id, connection_id)
+    
+    return jsonify(result)
+
+# POST /api/projects/<id>/pause-transmission - Pausar transmisiones del proyecto
+@app.route('/api/projects/<int:project_id>/pause-transmission', methods=['POST'])
+def pause_project_transmission(project_id):
+    operation_manager = ProjectOperationManager()
+    result = operation_manager.pause_project_transmission(project_id)
+    
+    # Actualizar estado del proyecto
+    project = Project.get_by_id(project_id)
+    if project and result['successful_operations'] > 0:
+        project.transmission_status = 'PAUSED'
+        project.save()
+    
+    return jsonify(result)
+
+# POST /api/projects/<id>/resume-transmission - Reanudar transmisiones del proyecto
+@app.route('/api/projects/<int:project_id>/resume-transmission', methods=['POST'])
+def resume_project_transmission(project_id):
+    operation_manager = ProjectOperationManager()
+    result = operation_manager.resume_project_transmission(project_id)
+    
+    # Actualizar estado del proyecto
+    project = Project.get_by_id(project_id)
+    if project and result['successful_operations'] > 0:
+        project.transmission_status = 'ACTIVE'
+        project.save()
+    
+    return jsonify(result)
+
+# POST /api/projects/<id>/stop-transmission - Parar transmisiones del proyecto
+@app.route('/api/projects/<int:project_id>/stop-transmission', methods=['POST'])
+def stop_project_transmission(project_id):
+    operation_manager = ProjectOperationManager()
+    result = operation_manager.stop_project_transmission(project_id)
+    
+    return jsonify(result)
+
+# GET /api/projects/<id>/transmission-history - Historial de transmisiones del proyecto
+@app.route('/api/projects/<int:project_id>/transmission-history', methods=['GET'])
+def get_project_transmission_history(project_id):
+    limit = request.args.get('limit', 100, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    
+    operation_manager = ProjectOperationManager()
+    history = operation_manager.get_project_transmission_history(project_id, limit, offset)
+    
+    return jsonify({
+        'project_id': project_id,
+        'transmissions': history,
+        'limit': limit,
+        'offset': offset
+    })
+```
+
+### 8.4 Frontend para Gestión de Proyectos
+
+#### Subtarea 8.4.1: Crear vistas HTML para proyectos
+- Vista lista de proyectos con información básica y acciones
+- Vista crear/editar proyecto con formulario
+- Vista detalle de proyecto con dispositivos asignados
+- Modal de selección de dispositivos para asignar al proyecto
+- Panel de control masivo de transmisiones por proyecto
+
+#### Subtarea 8.4.2: Implementar formulario de creación/edición de proyectos
+- Formulario con validación en tiempo real
+- Campos: nombre (obligatorio), descripción (opcional)
+- Validación de nombres únicos
+- Feedback visual de validaciones
+
+#### Subtarea 8.4.3: Crear interfaz de gestión de dispositivos del proyecto
+- Lista de dispositivos actuales en el proyecto
+- Botón "Agregar Dispositivos" que abre modal de selección
+- Lista de dispositivos disponibles (sin proyecto asignado)
+- Checkbox múltiple para selección de dispositivos
+- Botones individuales para remover dispositivos del proyecto
+
+#### Subtarea 8.4.4: Implementar panel de control masivo de transmisiones
+- Botones: "Iniciar Transmisión", "Pausar", "Reanudar", "Parar"
+- Estados visuales del proyecto (INACTIVO/ACTIVO/PAUSADO)
+- Indicador de progreso durante operaciones masivas
+- Resultados detallados de operaciones (éxitos/fallos)
+- Selector de conexión para transmisiones (opcional)
+
+#### Subtarea 8.4.5: Crear vista de historial de transmisiones del proyecto
+- Tabla de transmisiones de todos los dispositivos del proyecto
+- Filtros por dispositivo, estado, fecha
+- Detalles de cada transmisión expandibles
+- Paginación para historial extenso
+- Exportación a CSV/JSON
+
+### 8.5 JavaScript para Gestión de Proyectos
+
+#### Subtarea 8.5.1: Extender API client para proyectos
+```javascript
+const ProjectAPI = {
+  // CRUD de proyectos
+  getProjects: () => fetch('/api/projects'),
+  createProject: (data) => fetch('/api/projects', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }),
+  getProject: (id) => fetch(`/api/projects/${id}`),
+  updateProject: (id, data) => fetch(`/api/projects/${id}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }),
+  deleteProject: (id) => fetch(`/api/projects/${id}`, {method: 'DELETE'}),
+  
+  // Gestión de dispositivos
+  getProjectDevices: (id) => fetch(`/api/projects/${id}/devices`),
+  addDevicesToProject: (projectId, deviceIds) => fetch(`/api/projects/${projectId}/devices`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({device_ids: deviceIds})
+  }),
+  removeDeviceFromProject: (projectId, deviceId) => 
+    fetch(`/api/projects/${projectId}/devices/${deviceId}`, {method: 'DELETE'}),
+  getUnassignedDevices: () => fetch('/api/devices/unassigned'),
+  
+  // Control de transmisiones
+  startProjectTransmission: (projectId, connectionId) => fetch(`/api/projects/${projectId}/start-transmission`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({connection_id: connectionId})
+  }),
+  pauseProjectTransmission: (projectId) => fetch(`/api/projects/${projectId}/pause-transmission`, {method: 'POST'}),
+  resumeProjectTransmission: (projectId) => fetch(`/api/projects/${projectId}/resume-transmission`, {method: 'POST'}),
+  stopProjectTransmission: (projectId) => fetch(`/api/projects/${projectId}/stop-transmission`, {method: 'POST'}),
+  
+  // Historial
+  getProjectTransmissionHistory: (projectId, limit, offset) => 
+    fetch(`/api/projects/${projectId}/transmission-history?limit=${limit}&offset=${offset}`)
+};
+```
+
+#### Subtarea 8.5.2: Implementar controlador de operaciones masivas
+```javascript
+class ProjectTransmissionController {
+  constructor(projectId) {
+    this.projectId = projectId;
+    this.isOperationInProgress = false;
+    this.initializeEventListeners();
+  }
+  
+  initializeEventListeners() {
+    document.getElementById('btn-start-transmission').addEventListener('click', () => this.startTransmission());
+    document.getElementById('btn-pause-transmission').addEventListener('click', () => this.pauseTransmission());
+    document.getElementById('btn-resume-transmission').addEventListener('click', () => this.resumeTransmission());
+    document.getElementById('btn-stop-transmission').addEventListener('click', () => this.stopTransmission());
+  }
+  
+  async startTransmission() {
+    if (this.isOperationInProgress) return;
+    
+    const connectionId = document.getElementById('connection-selector').value;
+    
+    if (!connectionId) {
+      this.showError('Debe seleccionar una conexión para la transmisión');
+      return;
+    }
+    
+    this.setOperationInProgress(true);
+    
+    try {
+      const response = await ProjectAPI.startProjectTransmission(this.projectId, connectionId);
+      const result = await response.json();
+      
+      this.showOperationResults('Iniciar Transmisión', result);
+      this.updateProjectStatus();
+      
+    } catch (error) {
+      this.showError('Error al iniciar transmisiones: ' + error.message);
+    } finally {
+      this.setOperationInProgress(false);
+    }
+  }
+  
+  async pauseTransmission() {
+    if (this.isOperationInProgress) return;
+    
+    this.setOperationInProgress(true);
+    
+    try {
+      const response = await ProjectAPI.pauseProjectTransmission(this.projectId);
+      const result = await response.json();
+      
+      this.showOperationResults('Pausar Transmisión', result);
+      this.updateProjectStatus();
+      
+    } catch (error) {
+      this.showError('Error al pausar transmisiones: ' + error.message);
+    } finally {
+      this.setOperationInProgress(false);
+    }
+  }
+  
+  showOperationResults(operation, result) {
+    const modal = document.getElementById('operation-results-modal');
+    const title = modal.querySelector('.operation-title');
+    const summary = modal.querySelector('.operation-summary');
+    const details = modal.querySelector('.operation-details');
+    
+    title.textContent = `Resultado: ${operation}`;
+    summary.innerHTML = `
+      <div class="result-summary">
+        <span class="total">Total: ${result.total_devices}</span>
+        <span class="success">Éxitos: ${result.successful_operations}</span>
+        <span class="failed">Fallos: ${result.failed_operations}</span>
+      </div>
+    `;
+    
+    details.innerHTML = result.results.map(r => `
+      <div class="device-result ${r.status.toLowerCase()}">
+        <strong>${r.device_name}</strong>
+        <span class="status">${r.status}</span>
+        <span class="message">${r.message}</span>
+      </div>
+    `).join('');
+    
+    modal.style.display = 'block';
+  }
+}
+```
+
+### 8.6 Validaciones y Reglas de Negocio para Proyectos
+
+#### Subtarea 8.6.1: Validaciones de integridad
+- Un proyecto no puede tener nombre vacío o duplicado
+- Un dispositivo puede pertenecer a múltiples proyectos
+- No se puede eliminar un proyecto con transmisiones activas sin confirmar
+- Validar que dispositivos tengan conexiones antes de iniciar transmisiones masivas
+
+#### Subtarea 8.6.2: Reglas de operaciones masivas
+- Solo permitir operaciones si hay dispositivos en el proyecto
+- Mostrar advertencias si algunos dispositivos no tienen conexiones configuradas
+- Registrar todas las operaciones masivas en logs de auditoría
+- Limitar operaciones concurrentes por proyecto
+
+## FASE 9: TESTING (Prioridad Media)
+
+### 9.1 Tests Backend
+#### Subtarea 9.1.1: Tests unitarios para modelos
+#### Subtarea 9.1.2: Tests para rutas API
+#### Subtarea 9.1.3: Tests para procesamiento CSV
+#### Subtarea 9.1.4: Tests de integración
+#### Subtarea 9.1.5: Tests para sistema de conexiones
 - Tests de validación de configuraciones MQTT/HTTPS
 - Tests de encriptación/desencriptación de credenciales
 - Tests de clientes MQTT y HTTPS (con mocks)
 - Tests de pruebas de conectividad
-#### Subtarea 8.1.6: Tests para tipología y transmisión de dispositivos
+#### Subtarea 9.1.6: Tests para tipología y transmisión de dispositivos
 - Tests de comportamiento por tipo de dispositivo (WebApp vs Sensor)
 - Tests del sistema de programación de tareas
 - Tests de transmisiones secuenciales para Sensor
 - Tests de transmisiones completas para WebApp
 - Tests del sistema de logging de transmisiones
 - Tests de validaciones específicas por tipo
+#### Subtarea 9.1.7: Tests para sistema de proyectos
+- Tests CRUD de proyectos
+- Tests de asignación/desasignación de dispositivos
+- Tests de operaciones masivas de transmisión
+- Tests de historial de transmisiones por proyecto
+- Tests de validaciones de integridad
+- Tests de eliminación segura de proyectos
 
-### 8.2 Tests Frontend
-#### Subtarea 8.2.1: Tests de componentes JavaScript
-#### Subtarea 8.2.2: Tests de integración con API
-#### Subtarea 8.2.3: Tests de formularios dinámicos de conexiones
-#### Subtarea 8.2.4: Tests de interfaz de usuario para conexiones
-#### Subtarea 8.2.5: Tests de controles de transmisión
+### 9.2 Tests Frontend
+#### Subtarea 9.2.1: Tests de componentes JavaScript
+#### Subtarea 9.2.2: Tests de integración con API
+#### Subtarea 9.2.3: Tests de formularios dinámicos de conexiones
+#### Subtarea 9.2.4: Tests de interfaz de usuario para conexiones
+#### Subtarea 9.2.5: Tests de controles de transmisión
+#### Subtarea 9.2.6: Tests de gestión de proyectos
+#### Subtarea 9.2.7: Tests de operaciones masivas en proyectos
 
-## FASE 9: DOCUMENTACIÓN (Prioridad Baja)
+## FASE 10: DOCUMENTACIÓN (Prioridad Baja)
 
-### 9.1 Documentación Técnica
-#### Subtarea 9.1.1: Documentar endpoints API
-#### Subtarea 9.1.2: Crear README con instrucciones
-#### Subtarea 9.1.3: Documentar estructura del proyecto
-#### Subtarea 9.1.4: Documentar sistema de conexiones
+### 10.1 Documentación Técnica
+#### Subtarea 10.1.1: Documentar endpoints API
+#### Subtarea 10.1.2: Crear README con instrucciones
+#### Subtarea 10.1.3: Documentar estructura del proyecto
+#### Subtarea 10.1.4: Documentar sistema de conexiones
 - Guía de configuración para diferentes tipos de conexión
 - Ejemplos de configuración MQTT y HTTPS
 - Documentación de seguridad y mejores prácticas
 - Guía de troubleshooting para problemas de conectividad
-#### Subtarea 9.1.5: Documentar sistema de tipología y transmisión
+#### Subtarea 10.1.5: Documentar sistema de tipología y transmisión
 - Guía de configuración por tipo de dispositivo
 - Ejemplos de formatos de transmisión WebApp vs Sensor
 - Documentación del sistema de programación automática
 - Guía de monitoreo y troubleshooting de transmisiones
+#### Subtarea 10.1.6: Documentar sistema de proyectos
+- Guía de gestión de proyectos y asignación de dispositivos
+- Documentación de operaciones masivas
+- Ejemplos de casos de uso para proyectos
+- Mejores prácticas para organización por proyectos
 
 ## Orden de Ejecución Recomendado
 
@@ -1254,6 +1961,38 @@ sqlalchemy==1.4.46  # Para persistencia de jobs en APScheduler
 - **Semana 4**: Fase 5 (Docker, containerización)
 - **Semana 5**: Fase 6 (Sistema de conexiones externas)
 - **Semana 6**: Fase 7 (Sistema de tipología y transmisión)
-- **Semana 7**: Fases 8-9 (Testing y documentación)
+- **Semana 7**: Fase 8 (Sistema de gestión de proyectos)
+- **Semana 8**: Fases 9-10 (Testing y documentación)
 
-**Estimación total**: 6-7 semanas para un desarrollador
+## Resumen de Funcionalidades del Sistema
+
+### **Gestión de Dispositivos**
+- Crear, editar, eliminar dispositivos
+- Upload y procesamiento de archivos CSV
+- Tipología: WebApp (envío completo) vs Sensor (envío secuencial)
+- Sistema de referencias alfanuméricas automáticas
+
+### **Sistema de Conexiones Externas**
+- Soporte para MQTT (Mosquitto) y HTTPS (REST API)
+- Múltiples tipos de autenticación (User/Pass, Token, API Key)
+- Pruebas de conectividad con historial
+- Encriptación segura de credenciales
+
+### **Control de Transmisiones**
+- Transmisiones automáticas programadas por frecuencia
+- Control manual: Transmitir Ahora, Pausar, Reanudar, Parar
+- Estados inteligentes que previenen conflictos
+- Historial completo de transmisiones
+
+### **Gestión de Proyectos**
+- Agrupación lógica de dispositivos relacionados
+- Operaciones masivas: control de transmisiones por lote
+- Asignación flexible de dispositivos a proyectos
+- Historial centralizado por proyecto
+
+### **Infraestructura y Deployment**
+- Containerización con Docker
+- Base de datos SQLite con esquemas optimizados
+- API RESTful completa
+- Frontend SPA responsive con JavaScript vanilla
+- Sistema de logging y auditoría

@@ -10,11 +10,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔧 DevSim</h1>
+            <h1>🔧 Device Simulator</h1>
             <p>Gestión de Dispositivos y Conexiones Externas</p>
             <nav class="main-nav">
+                <button id="nav-projects" class="nav-btn">📁 Proyectos</button>
                 <button id="nav-devices" class="nav-btn active">📱 Dispositivos</button>
-                <button id="nav-connections" class="nav-btn">🔗 Conexiones</button>
+                <button id="nav-connections" class="nav-btn">🔗 Conexiones</button>            
             </nav>
         </header>
 
@@ -323,6 +324,123 @@
             </div>
         </div>
 
+        <!-- Vista: Lista de Proyectos -->
+        <div id="projects-list-view" class="view">
+            <div class="view-header">
+                <h2>📁 Proyectos</h2>
+                <button id="btn-new-project" class="btn btn-primary">Nuevo Proyecto</button>
+            </div>
+            
+            <div class="projects-grid" id="projects-grid">
+                <div class="loading" id="projects-loading">Cargando proyectos...</div>
+            </div>
+        </div>
+
+        <!-- Vista: Crear/Editar Proyecto -->
+        <div id="project-form-view" class="view">
+            <div class="view-header">
+                <h2 id="project-form-title">Nuevo Proyecto</h2>
+                <button id="btn-back-to-projects" class="btn btn-secondary">Volver</button>
+            </div>
+            
+            <form id="project-form" class="form">
+                <div class="form-group">
+                    <label for="project-name">Nombre del Proyecto *</label>
+                    <input type="text" id="project-name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project-description">Descripción</label>
+                    <textarea id="project-description" name="description" rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <span id="project-submit-text">Crear Proyecto</span>
+                    </button>
+                    <button type="button" id="btn-cancel-project" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Vista: Detalle de Proyecto -->
+        <div id="project-detail-view" class="view">
+            <div class="view-header">
+                <h2 id="project-detail-title">Detalle de Proyecto</h2>
+                <div class="header-actions">
+                    <button id="btn-edit-project" class="btn btn-info">✏️ Editar</button>
+                    <button id="btn-delete-project" class="btn btn-danger">🗑️ Eliminar</button>
+                    <button id="btn-back-from-project-detail" class="btn btn-secondary">Volver</button>
+                </div>
+            </div>
+            
+            <div class="project-info" id="project-info">
+                <!-- Info del proyecto se carga dinámicamente -->
+            </div>
+
+            <!-- Control de Transmisiones Masivas -->
+            <div class="project-transmission-control">
+                <h3>📡 Control de Transmisiones</h3>
+                
+                <div class="transmission-status">
+                    <div class="status-indicator-container">
+                        <div id="project-transmission-indicator" class="transmission-indicator state-inactive"></div>
+                        <span id="project-transmission-text" class="state-text">Inactivo</span>
+                    </div>
+                </div>
+                
+                <div class="transmission-config">
+                    <div class="form-group">
+                        <label for="project-connection-selector">Conexión para Transmisión</label>
+                        <select id="project-connection-selector" name="connection_id">
+                            <option value="">Usar conexión de cada dispositivo</option>
+                        </select>
+                    </div>
+                    
+                    <div class="transmission-actions">
+                        <button id="btn-start-project-transmission" class="btn btn-success">🚀 Iniciar Transmisiones</button>
+                        <button id="btn-pause-project-transmission" class="btn btn-warning">⏸️ Pausar</button>
+                        <button id="btn-resume-project-transmission" class="btn btn-info">▶️ Reanudar</button>
+                        <button id="btn-stop-project-transmission" class="btn btn-danger">⏹️ Parar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gestión de Dispositivos del Proyecto -->
+            <div class="project-devices">
+                <div class="devices-header">
+                    <h3>📱 Dispositivos del Proyecto</h3>
+                    <button id="btn-add-devices-to-project" class="btn btn-primary">➕ Agregar Dispositivos</button>
+                </div>
+                
+                <div class="project-devices-list" id="project-devices-list">
+                    <div class="loading">Cargando dispositivos...</div>
+                </div>
+            </div>
+
+            <!-- Historial de Transmisiones del Proyecto -->
+            <div class="project-transmission-history">
+                <div class="history-header">
+                    <h3>📋 Historial de Transmisiones</h3>
+                    <div class="history-controls">
+                        <select id="project-history-filter-device" class="filter-select">
+                            <option value="">Todos los dispositivos</option>
+                        </select>
+                        <select id="project-history-filter-status" class="filter-select">
+                            <option value="">Todos los estados</option>
+                            <option value="SUCCESS">Exitosas</option>
+                            <option value="FAILED">Fallidas</option>
+                        </select>
+                        <button class="btn btn-sm btn-secondary" onclick="exportProjectTransmissionHistory()">📥 Exportar</button>
+                        <button class="btn btn-sm btn-primary" onclick="refreshProjectTransmissionHistory()">🔄</button>
+                    </div>
+                </div>
+                <div id="project-transmission-history-list" class="history-list">
+                    <div class="loading">Sin transmisiones</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal de Envío de Datos -->
         <div id="send-data-modal" class="modal">
             <div class="modal-content">
@@ -363,6 +481,47 @@
                 <div class="modal-footer">
                     <button id="btn-confirm-transmit" class="btn btn-primary">Transmitir</button>
                     <button id="btn-cancel-transmit" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Selección de Dispositivos para Proyecto -->
+        <div id="add-devices-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>➕ Agregar Dispositivos al Proyecto</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Selecciona los dispositivos que deseas agregar al proyecto:</p>
+                    <div class="devices-selector" id="unassigned-devices-selector">
+                        <!-- Lista de dispositivos sin asignar -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-confirm-add-devices" class="btn btn-primary">Agregar Seleccionados</button>
+                    <button id="btn-cancel-add-devices" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Resultados de Operaciones -->
+        <div id="operation-results-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="operation-title">Resultado de Operación</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="operation-summary">
+                        <!-- Resumen de la operación -->
+                    </div>
+                    <div class="operation-details">
+                        <!-- Detalles por dispositivo -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="hideOperationResultsModal()">Cerrar</button>
                 </div>
             </div>
         </div>

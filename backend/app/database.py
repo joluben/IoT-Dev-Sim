@@ -90,6 +90,39 @@ def init_db():
             )
         ''')
 
+        # --- Nuevas tablas para Fase 8: Sistema de Proyectos ---
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                transmission_status TEXT DEFAULT 'INACTIVE' CHECK(transmission_status IN ('INACTIVE', 'ACTIVE', 'PAUSED')),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS project_devices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                device_id INTEGER NOT NULL,
+                assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+                FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE,
+                UNIQUE(project_id, device_id)
+            )
+        ''')
+
+        # Índices para optimizar consultas de proyectos
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_project_devices_project ON project_devices(project_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_project_devices_device ON project_devices(device_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(transmission_status)')
+
+        # Migración opcional: agregar columna current_project_id a devices
+        add_column_if_not_exists(conn, 'devices', 'current_project_id', 'INTEGER REFERENCES projects (id) ON DELETE SET NULL')
+
         conn.commit()
 
 def add_column_if_not_exists(conn, table_name, column_name, column_definition):

@@ -6,11 +6,15 @@ const API_BASE = '/api';
 let devices = [];
 let connections = [];
 let currentDevice = null;
+let currentConnection = null;
+let currentProject = null;
 let transmissionAPI = null;
 let realtimeMonitor = null;
 let visualizations = null;
 let editingConnection = null;
 let lastTransmissionHistory = [];
+let lastProjectTransmissionHistory = [];
+let websocket = null;
 
 // DOM Elements
 const views = {
@@ -19,7 +23,10 @@ const views = {
     deviceDetail: document.getElementById('device-detail-view'),
     connectionsList: document.getElementById('connections-list-view'),
     connectionForm: document.getElementById('connection-form-view'),
-    connectionDetail: document.getElementById('connection-detail-view')
+    connectionDetail: document.getElementById('connection-detail-view'),
+    projectsList: document.getElementById('projects-list-view'),
+    projectForm: document.getElementById('project-form-view'),
+    projectDetail: document.getElementById('project-detail-view')
 };
 
 const elements = {
@@ -154,6 +161,123 @@ const API = {
     // Transmission history API
     async getTransmissionHistory(deviceId, limit = 20) {
         const response = await fetch(`${API_BASE}/devices/${deviceId}/transmission-history?limit=${limit}`);
+        return response.json();
+    },
+
+    // Project API functions
+    async getProjects() {
+        const response = await fetch(`${API_BASE}/projects`);
+        const text = await response.text();
+        let payload;
+        try { payload = text ? JSON.parse(text) : []; }
+        catch (_) { payload = { error: text || 'Respuesta no válida' }; }
+        if (!response.ok) {
+            const msg = (payload && payload.error) ? payload.error : `HTTP ${response.status}`;
+            throw new Error(msg);
+        }
+        return payload;
+    },
+
+    async createProject(data) {
+        const response = await fetch(`${API_BASE}/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        // Gracefully handle non-JSON error bodies (e.g., HTML 405 page)
+        let payload;
+        const text = await response.text();
+        try {
+            payload = text ? JSON.parse(text) : {};
+        } catch (_) {
+            payload = { error: text };
+        }
+        if (!response.ok) {
+            const msg = (payload && payload.error) ? payload.error : `HTTP ${response.status}`;
+            throw new Error(msg);
+        }
+        return payload;
+    },
+
+    async getProject(id) {
+        const response = await fetch(`${API_BASE}/projects/${id}`);
+        return response.json();
+    },
+
+    async updateProject(id, data) {
+        const response = await fetch(`${API_BASE}/projects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return response.json();
+    },
+
+    async deleteProject(id) {
+        const response = await fetch(`${API_BASE}/projects/${id}`, {
+            method: 'DELETE'
+        });
+        return response.json();
+    },
+
+    async getProjectDevices(id) {
+        const response = await fetch(`${API_BASE}/projects/${id}/devices`);
+        return response.json();
+    },
+
+    async addDevicesToProject(projectId, deviceIds) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/devices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_ids: deviceIds })
+        });
+        return response.json();
+    },
+
+    async removeDeviceFromProject(projectId, deviceId) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/devices/${deviceId}`, {
+            method: 'DELETE'
+        });
+        return response.json();
+    },
+
+    async getUnassignedDevices() {
+        const response = await fetch(`${API_BASE}/devices/unassigned`);
+        return response.json();
+    },
+
+    async startProjectTransmission(projectId, connectionId) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/start-transmission`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ connection_id: connectionId })
+        });
+        return response.json();
+    },
+
+    async pauseProjectTransmission(projectId) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/pause-transmission`, {
+            method: 'POST'
+        });
+        return response.json();
+    },
+
+    async resumeProjectTransmission(projectId) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/resume-transmission`, {
+            method: 'POST'
+        });
+        return response.json();
+    },
+
+    async stopProjectTransmission(projectId) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/stop-transmission`, {
+            method: 'POST'
+        });
+        return response.json();
+    },
+
+    async getProjectTransmissionHistory(projectId, limit = 100, offset = 0) {
+        const response = await fetch(`${API_BASE}/projects/${projectId}/transmission-history?limit=${limit}&offset=${offset}`);
         return response.json();
     },
 
@@ -367,6 +491,610 @@ function attachHistoryFilterListeners() {
     }
 }
 
+// ============================================================================
+// PROJECT MANAGEMENT FUNCTIONS
+// ============================================================================
+
+// Project navigation and loading
+async function loadProjects() {
+    try {
+        const projectsGrid = document.getElementById('projects-grid');
+        if (!projectsGrid) return;
+        
+        projectsGrid.innerHTML = '<div class="loading">Cargando proyectos...</div>';
+        
+        const projects = await API.getProjects();
+        if (!Array.isArray(projects)) {
+            const errMsg = projects && projects.error ? projects.error : 'Respuesta inesperada al cargar proyectos';
+            throw new Error(errMsg);
+        }
+        
+        if (projects.length === 0) {
+            projectsGrid.innerHTML = '<div class="empty-state">No hay proyectos creados</div>';
+            return;
+        }
+        
+        projectsGrid.innerHTML = projects.map(project => `
+            <div class="project-card" onclick="showProjectDetail(${project.id})">
+                <div class="project-header">
+                    <h3>${project.name}</h3>
+                    <div class="project-status ${project.transmission_status.toLowerCase()}">
+                        ${getTransmissionStatusText(project.transmission_status)}
+                    </div>
+                </div>
+                <div class="project-info">
+                    <p class="project-description">${project.description || 'Sin descripción'}</p>
+                    <div class="project-stats">
+                        <span class="device-count">📱 ${project.devices_count} dispositivos</span>
+                        <span class="created-date">📅 ${formatDate(project.created_at)}</span>
+                    </div>
+                </div>
+                <div class="project-actions">
+                    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ Editar</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(${project.id})">🗑️ Eliminar</button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading projects:', error);
+        const projectsGrid = document.getElementById('projects-grid');
+        if (projectsGrid) {
+            projectsGrid.innerHTML = '<div class="error">Error cargando proyectos</div>';
+        }
+    }
+}
+
+function getTransmissionStatusText(status) {
+    const statusMap = {
+        'INACTIVE': 'Inactivo',
+        'ACTIVE': 'Activo',
+        'PAUSED': 'Pausado'
+    };
+    return statusMap[status] || status;
+}
+
+// Project detail view
+async function showProjectDetail(projectId) {
+    try {
+        currentProject = await API.getProject(projectId);
+        if (!currentProject) {
+            showNotification('Proyecto no encontrado', 'error');
+            return;
+        }
+        
+        // Update project info
+        document.getElementById('project-detail-title').textContent = currentProject.name;
+        document.getElementById('project-info').innerHTML = `
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Nombre:</label>
+                    <span>${currentProject.name}</span>
+                </div>
+                <div class="info-item">
+                    <label>Descripción:</label>
+                    <span>${currentProject.description || 'Sin descripción'}</span>
+                </div>
+                <div class="info-item">
+                    <label>Estado:</label>
+                    <span class="status ${currentProject.transmission_status.toLowerCase()}">
+                        ${getTransmissionStatusText(currentProject.transmission_status)}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Dispositivos:</label>
+                    <span>${currentProject.devices_count}</span>
+                </div>
+                <div class="info-item">
+                    <label>Creado:</label>
+                    <span>${formatDate(currentProject.created_at)}</span>
+                </div>
+            </div>
+        `;
+        
+        // Update transmission status indicator
+        updateProjectTransmissionStatus(currentProject.transmission_status);
+        
+        // Load project devices
+        await loadProjectDevices(projectId);
+        
+        // Load connections for selector
+        await loadProjectConnectionSelector();
+        
+        // Load transmission history
+        await loadProjectTransmissionHistory(projectId);
+        
+        showView('projectDetail');
+        
+    } catch (error) {
+        console.error('Error loading project detail:', error);
+        showNotification('Error cargando detalle del proyecto', 'error');
+    }
+}
+
+function updateProjectTransmissionStatus(status) {
+    const indicator = document.getElementById('project-transmission-indicator');
+    const text = document.getElementById('project-transmission-text');
+    
+    if (!indicator || !text) return;
+    
+    // Remove all status classes
+    indicator.className = 'transmission-indicator';
+    
+    switch (status) {
+        case 'ACTIVE':
+            indicator.classList.add('state-active');
+            text.textContent = 'Activo';
+            break;
+        case 'PAUSED':
+            indicator.classList.add('state-paused');
+            text.textContent = 'Pausado';
+            break;
+        default:
+            indicator.classList.add('state-inactive');
+            text.textContent = 'Inactivo';
+    }
+    
+    // Update button states
+    updateProjectTransmissionButtons(status);
+}
+
+function updateProjectTransmissionButtons(status) {
+    const startBtn = document.getElementById('btn-start-project-transmission');
+    const pauseBtn = document.getElementById('btn-pause-project-transmission');
+    const resumeBtn = document.getElementById('btn-resume-project-transmission');
+    const stopBtn = document.getElementById('btn-stop-project-transmission');
+    
+    if (!startBtn || !pauseBtn || !resumeBtn || !stopBtn) return;
+    
+    // Reset all buttons
+    [startBtn, pauseBtn, resumeBtn, stopBtn].forEach(btn => {
+        btn.disabled = false;
+        btn.style.display = 'inline-block';
+    });
+    
+    switch (status) {
+        case 'ACTIVE':
+            startBtn.disabled = true;
+            resumeBtn.style.display = 'none';
+            break;
+        case 'PAUSED':
+            startBtn.disabled = true;
+            pauseBtn.style.display = 'none';
+            break;
+        default: // INACTIVE
+            pauseBtn.style.display = 'none';
+            resumeBtn.style.display = 'none';
+            stopBtn.disabled = true;
+    }
+}
+
+// Project devices management
+async function loadProjectDevices(projectId) {
+    try {
+        const devicesList = document.getElementById('project-devices-list');
+        if (!devicesList) return;
+        
+        devicesList.innerHTML = '<div class="loading">Cargando dispositivos...</div>';
+        
+        const devices = await API.getProjectDevices(projectId);
+        
+        if (!devices || devices.length === 0) {
+            devicesList.innerHTML = '<div class="empty-state">No hay dispositivos en este proyecto</div>';
+            return;
+        }
+        
+        devicesList.innerHTML = devices.map(device => `
+            <div class="device-item">
+                <div class="device-info">
+                    <h4>${device.name}</h4>
+                    <p class="device-reference">Ref: ${device.reference}</p>
+                    <p class="device-type">Tipo: ${device.device_type}</p>
+                    <p class="device-status">
+                        Estado: ${device.transmission_enabled ? 'Habilitado' : 'Deshabilitado'}
+                    </p>
+                </div>
+                <div class="device-actions">
+                    <button class="btn btn-sm btn-info" onclick="showDeviceDetail(${device.id})">Ver Detalle</button>
+                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Remover</button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading project devices:', error);
+        const devicesList = document.getElementById('project-devices-list');
+        if (devicesList) {
+            devicesList.innerHTML = '<div class="error">Error cargando dispositivos</div>';
+        }
+    }
+}
+
+async function loadProjectConnectionSelector() {
+    try {
+        const selector = document.getElementById('project-connection-selector');
+        if (!selector) return;
+        
+        const connections = await API.getConnections();
+        const activeConnections = connections.filter(conn => conn.is_active);
+        
+        selector.innerHTML = '<option value="">Usar conexión de cada dispositivo</option>' +
+            activeConnections.map(conn => 
+                `<option value="${conn.id}">${conn.name} (${conn.type})</option>`
+            ).join('');
+            
+    } catch (error) {
+        console.error('Error loading connections for project:', error);
+    }
+}
+
+// Project transmission operations
+async function startProjectTransmission() {
+    if (!currentProject) return;
+    
+    try {
+        const connectionId = document.getElementById('project-connection-selector').value || null;
+        
+        showNotification('Iniciando transmisiones del proyecto...', 'info');
+        
+        const result = await API.startProjectTransmission(currentProject.id, connectionId);
+        
+        showOperationResults('Iniciar Transmisiones', result);
+        
+        // Update project status
+        if (result.successful_operations > 0) {
+            currentProject.transmission_status = 'ACTIVE';
+            updateProjectTransmissionStatus('ACTIVE');
+        }
+        
+    } catch (error) {
+        console.error('Error starting project transmission:', error);
+        showNotification('Error al iniciar transmisiones del proyecto', 'error');
+    }
+}
+
+async function pauseProjectTransmission() {
+    if (!currentProject) return;
+    
+    try {
+        showNotification('Pausando transmisiones del proyecto...', 'info');
+        
+        const result = await API.pauseProjectTransmission(currentProject.id);
+        
+        showOperationResults('Pausar Transmisiones', result);
+        
+        if (result.successful_operations > 0) {
+            currentProject.transmission_status = 'PAUSED';
+            updateProjectTransmissionStatus('PAUSED');
+        }
+        
+    } catch (error) {
+        console.error('Error pausing project transmission:', error);
+        showNotification('Error al pausar transmisiones del proyecto', 'error');
+    }
+}
+
+async function resumeProjectTransmission() {
+    if (!currentProject) return;
+    
+    try {
+        showNotification('Reanudando transmisiones del proyecto...', 'info');
+        
+        const result = await API.resumeProjectTransmission(currentProject.id);
+        
+        showOperationResults('Reanudar Transmisiones', result);
+        
+        if (result.successful_operations > 0) {
+            currentProject.transmission_status = 'ACTIVE';
+            updateProjectTransmissionStatus('ACTIVE');
+        }
+        
+    } catch (error) {
+        console.error('Error resuming project transmission:', error);
+        showNotification('Error al reanudar transmisiones del proyecto', 'error');
+    }
+}
+
+async function stopProjectTransmission() {
+    if (!currentProject) return;
+    
+    try {
+        showNotification('Deteniendo transmisiones del proyecto...', 'info');
+        
+        const result = await API.stopProjectTransmission(currentProject.id);
+        
+        showOperationResults('Detener Transmisiones', result);
+        
+        currentProject.transmission_status = 'INACTIVE';
+        updateProjectTransmissionStatus('INACTIVE');
+        
+    } catch (error) {
+        console.error('Error stopping project transmission:', error);
+        showNotification('Error al detener transmisiones del proyecto', 'error');
+    }
+}
+
+// Project transmission history
+async function loadProjectTransmissionHistory(projectId) {
+    try {
+        const list = document.getElementById('project-transmission-history-list');
+        if (!list) return;
+        
+        list.innerHTML = '<div class="loading">Cargando historial...</div>';
+        
+        const response = await API.getProjectTransmissionHistory(projectId);
+        const history = response.transmissions || [];
+        
+        lastProjectTransmissionHistory = Array.isArray(history) ? history : [];
+        
+        if (!lastProjectTransmissionHistory || lastProjectTransmissionHistory.length === 0) {
+            list.innerHTML = '<div class="loading">Sin transmisiones</div>';
+            return;
+        }
+        
+        populateProjectHistoryDeviceFilter(lastProjectTransmissionHistory);
+        attachProjectHistoryFilterListeners();
+        renderProjectTransmissionHistory();
+        
+    } catch (error) {
+        console.error('Error loading project transmission history:', error);
+        const list = document.getElementById('project-transmission-history-list');
+        if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
+    }
+}
+
+function renderProjectTransmissionHistory() {
+    const list = document.getElementById('project-transmission-history-list');
+    if (!list) return;
+    
+    const deviceFilter = document.getElementById('project-history-filter-device');
+    const statusFilter = document.getElementById('project-history-filter-status');
+    
+    let filteredHistory = [...lastProjectTransmissionHistory];
+    
+    // Apply device filter
+    if (deviceFilter && deviceFilter.value) {
+        filteredHistory = filteredHistory.filter(item => 
+            item.device_id == deviceFilter.value
+        );
+    }
+    
+    // Apply status filter
+    if (statusFilter && statusFilter.value) {
+        filteredHistory = filteredHistory.filter(item => 
+            item.status === statusFilter.value
+        );
+    }
+    
+    if (filteredHistory.length === 0) {
+        list.innerHTML = '<div class="loading">No hay transmisiones que coincidan con los filtros</div>';
+        return;
+    }
+    
+    list.innerHTML = filteredHistory.map(item => {
+        const timestamp = item.timestamp || item.transmission_time || item.sent_at || item.created_at;
+        const statusClass = item.status === 'SUCCESS' ? 'success' : 'failed';
+        
+        return `
+            <div class="history-item ${statusClass}">
+                <div class="history-header">
+                    <span class="device-name">${item.device_name} (${item.device_reference})</span>
+                    <span class="connection-name">${item.connection_name}</span>
+                    <span class="timestamp">${formatDate(timestamp)}</span>
+                </div>
+                <div class="history-details">
+                    <span class="status ${statusClass}">${item.status}</span>
+                    <span class="transmission-type">${item.transmission_type}</span>
+                    ${item.row_index !== null ? `<span class="row-index">Fila: ${item.row_index}</span>` : ''}
+                    ${item.error_message ? `<span class="error-message">Error: ${item.error_message}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function populateProjectHistoryDeviceFilter(historyItems) {
+    const select = document.getElementById('project-history-filter-device');
+    if (!select) return;
+    
+    const prevValue = select.value;
+    const uniqueDevices = [...new Map(historyItems.map(i => [i.device_id, i])).values()];
+    
+    const options = ['<option value="">Todos los dispositivos</option>']
+        .concat(uniqueDevices.map(item => 
+            `<option value="${item.device_id}">${item.device_name} (${item.device_reference})</option>`
+        ));
+    
+    select.innerHTML = options.join('');
+    
+    // Restore previous selection if still present
+    if (prevValue && uniqueDevices.some(d => d.device_id == prevValue)) {
+        select.value = prevValue;
+    }
+}
+
+function attachProjectHistoryFilterListeners() {
+    const deviceFilter = document.getElementById('project-history-filter-device');
+    const statusFilter = document.getElementById('project-history-filter-status');
+    
+    if (deviceFilter && !deviceFilter._projectListenerAttached) {
+        deviceFilter.addEventListener('change', renderProjectTransmissionHistory);
+        deviceFilter._projectListenerAttached = true;
+    }
+    if (statusFilter && !statusFilter._projectListenerAttached) {
+        statusFilter.addEventListener('change', renderProjectTransmissionHistory);
+        statusFilter._projectListenerAttached = true;
+    }
+}
+
+function refreshProjectTransmissionHistory() {
+    if (!currentProject) return;
+    loadProjectTransmissionHistory(currentProject.id);
+}
+
+function exportProjectTransmissionHistory() {
+    if (!lastProjectTransmissionHistory || lastProjectTransmissionHistory.length === 0) {
+        showNotification('No hay datos para exportar', 'warning');
+        return;
+    }
+    
+    try {
+        const csvContent = 'data:text/csv;charset=utf-8,' + 
+            'Dispositivo,Referencia,Conexión,Estado,Tipo,Fila,Fecha,Error\n' +
+            lastProjectTransmissionHistory.map(item => {
+                const timestamp = item.timestamp || item.transmission_time || item.sent_at || item.created_at;
+                return [
+                    item.device_name,
+                    item.device_reference,
+                    item.connection_name,
+                    item.status,
+                    item.transmission_type,
+                    item.row_index || '',
+                    timestamp,
+                    item.error_message || ''
+                ].map(field => `"${field}"`).join(',');
+            }).join('\n');
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `historial_proyecto_${currentProject.name}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification('Historial exportado correctamente', 'success');
+    } catch (e) {
+        showNotification('Error exportando historial: ' + e.message, 'error');
+    }
+}
+
+// Device management for projects
+async function showAddDevicesModal() {
+    if (!currentProject) return;
+    
+    try {
+        const modal = document.getElementById('add-devices-modal');
+        const selector = document.getElementById('unassigned-devices-selector');
+        
+        if (!modal || !selector) return;
+        
+        // Load unassigned devices
+        const devices = await API.getUnassignedDevices();
+        
+        if (!devices || devices.length === 0) {
+            selector.innerHTML = '<div class="empty-state">No hay dispositivos disponibles para asignar</div>';
+        } else {
+            selector.innerHTML = devices.map(device => `
+                <div class="device-checkbox-item">
+                    <input type="checkbox" id="device-${device.id}" value="${device.id}">
+                    <label for="device-${device.id}">
+                        <strong>${device.name}</strong>
+                        <span class="device-reference">Ref: ${device.reference}</span>
+                        <span class="device-type">Tipo: ${device.device_type}</span>
+                    </label>
+                </div>
+            `).join('');
+        }
+        
+        modal.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading unassigned devices:', error);
+        showNotification('Error cargando dispositivos disponibles', 'error');
+    }
+}
+
+async function addSelectedDevicesToProject() {
+    if (!currentProject) return;
+    
+    try {
+        const checkboxes = document.querySelectorAll('#unassigned-devices-selector input[type="checkbox"]:checked');
+        const deviceIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        
+        if (deviceIds.length === 0) {
+            showNotification('Selecciona al menos un dispositivo', 'warning');
+            return;
+        }
+        
+        const result = await API.addDevicesToProject(currentProject.id, deviceIds);
+        
+        // Show results
+        const successCount = result.results.filter(r => r.status === 'SUCCESS').length;
+        const failedCount = result.results.filter(r => r.status === 'FAILED').length;
+        
+        if (successCount > 0) {
+            showNotification(`${successCount} dispositivos agregados correctamente`, 'success');
+            await loadProjectDevices(currentProject.id);
+        }
+        
+        if (failedCount > 0) {
+            showNotification(`${failedCount} dispositivos no pudieron ser agregados`, 'warning');
+        }
+        
+        hideAddDevicesModal();
+        
+    } catch (error) {
+        console.error('Error adding devices to project:', error);
+        showNotification('Error agregando dispositivos al proyecto', 'error');
+    }
+}
+
+async function removeDeviceFromProject(deviceId) {
+    if (!currentProject || !confirm('¿Estás seguro de que quieres remover este dispositivo del proyecto?')) {
+        return;
+    }
+    
+    try {
+        await API.removeDeviceFromProject(currentProject.id, deviceId);
+        showNotification('Dispositivo removido del proyecto', 'success');
+        await loadProjectDevices(currentProject.id);
+        
+    } catch (error) {
+        console.error('Error removing device from project:', error);
+        showNotification('Error removiendo dispositivo del proyecto', 'error');
+    }
+}
+
+// Modal management
+function hideAddDevicesModal() {
+    const modal = document.getElementById('add-devices-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function showOperationResults(operation, result) {
+    const modal = document.getElementById('operation-results-modal');
+    const title = modal.querySelector('.operation-title');
+    const summary = modal.querySelector('.operation-summary');
+    const details = modal.querySelector('.operation-details');
+    
+    if (!modal || !title || !summary || !details) return;
+    
+    title.textContent = `Resultado: ${operation}`;
+    summary.innerHTML = `
+        <div class="result-summary">
+            <span class="total">Total: ${result.total_devices}</span>
+            <span class="success">Éxitos: ${result.successful_operations}</span>
+            <span class="failed">Fallos: ${result.failed_operations}</span>
+        </div>
+    `;
+    
+    details.innerHTML = result.results.map(r => `
+        <div class="device-result ${r.status.toLowerCase()}">
+            <strong>${r.device_name}</strong>
+            <span class="status">${r.status}</span>
+            <span class="message">${r.message}</span>
+        </div>
+    `).join('');
+    
+    modal.style.display = 'block';
+}
+
+function hideOperationResultsModal() {
+    const modal = document.getElementById('operation-results-modal');
+    if (modal) modal.style.display = 'none';
+}
+
 // Paused state persistence (per-device) in sessionStorage
 function getPausedState(deviceId) {
     const key = `devsim:paused:${deviceId}`;
@@ -422,16 +1150,18 @@ function updateTransmissionControls({ enabled, paused, deviceType }) {
 function showView(viewName) {
     // Hide all views
     Object.values(views).forEach(view => {
-        if (view) view.style.display = 'none';
+        if (view) view.classList.remove('active');
     });
     
     // Show selected view
     if (views[viewName]) {
-        views[viewName].style.display = 'block';
-        currentView = viewName;
-    } else {
-        console.error(`View not found: ${viewName}`);
+        views[viewName].classList.add('active');
     }
+    
+    // Update navigation
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`nav-${viewName.replace('List', 's').replace('Detail', '').replace('Form', '').replace('Create', '')}`);
+    if (activeBtn) activeBtn.classList.add('active');
 }
 
 function formatDate(dateString) {
@@ -719,6 +1449,12 @@ document.addEventListener('DOMContentLoaded', function() {
         setActiveNav('connections');
         showView('connectionsList');
         loadConnections();
+    });
+
+    document.getElementById('nav-projects').addEventListener('click', () => {
+        setActiveNav('projects');
+        showView('projectsList');
+        loadProjects();
     });
 
     // Connection event listeners
@@ -1792,10 +2528,153 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeHistoryFilters();
     
     // Modal close handlers
-    document.querySelectorAll('#transmit-modal .modal-close').forEach(btn => {
-        btn.addEventListener('click', hideTransmitModal);
+    document.querySelectorAll('.modal-close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', (e) => {
+            e.target.closest('.modal').style.display = 'none';
+        });
     });
+
+    // Project event listeners
+    document.getElementById('btn-new-project').addEventListener('click', () => {
+        currentProject = null;
+        document.getElementById('project-form-title').textContent = 'Nuevo Proyecto';
+        document.getElementById('project-submit-text').textContent = 'Crear Proyecto';
+        document.getElementById('project-form').reset();
+        showView('projectForm');
+    });
+
+    document.getElementById('btn-back-to-projects').addEventListener('click', () => {
+        showView('projectsList');
+        loadProjects();
+    });
+
+    document.getElementById('btn-back-from-project-detail').addEventListener('click', () => {
+        showView('projectsList');
+        loadProjects();
+    });
+
+    document.getElementById('btn-edit-project').addEventListener('click', () => {
+        if (!currentProject) return;
+        
+        document.getElementById('project-form-title').textContent = 'Editar Proyecto';
+        document.getElementById('project-submit-text').textContent = 'Actualizar Proyecto';
+        document.getElementById('project-name').value = currentProject.name;
+        document.getElementById('project-description').value = currentProject.description || '';
+        showView('projectForm');
+    });
+
+    document.getElementById('btn-delete-project').addEventListener('click', async () => {
+        if (!currentProject || !confirm(`¿Estás seguro de que quieres eliminar el proyecto "${currentProject.name}"?`)) {
+            return;
+        }
+        
+        try {
+            await API.deleteProject(currentProject.id);
+            showNotification('Proyecto eliminado correctamente', 'success');
+            showView('projectsList');
+            loadProjects();
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            showNotification('Error eliminando proyecto', 'error');
+        }
+    });
+
+    // Project form submission
+    document.getElementById('project-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+            name: formData.get('name').trim(),
+            description: formData.get('description').trim()
+        };
+        
+        if (!data.name) {
+            showNotification('El nombre del proyecto es requerido', 'error');
+            return;
+        }
+        
+        try {
+            if (currentProject) {
+                // Update existing project
+                await API.updateProject(currentProject.id, data);
+                showNotification('Proyecto actualizado correctamente', 'success');
+            } else {
+                // Create new project
+                await API.createProject(data);
+                showNotification('Proyecto creado correctamente', 'success');
+            }
+            
+            showView('projectsList');
+            loadProjects();
+            
+        } catch (error) {
+            console.error('Error saving project:', error);
+            const errorMsg = error.message || 'Error guardando proyecto';
+            showNotification(errorMsg, 'error');
+        }
+    });
+
+    document.getElementById('btn-cancel-project').addEventListener('click', () => {
+        showView('projectsList');
+        loadProjects();
+    });
+
+    // Project transmission control buttons
+    document.getElementById('btn-start-project-transmission').addEventListener('click', startProjectTransmission);
+    document.getElementById('btn-pause-project-transmission').addEventListener('click', pauseProjectTransmission);
+    document.getElementById('btn-resume-project-transmission').addEventListener('click', resumeProjectTransmission);
+    document.getElementById('btn-stop-project-transmission').addEventListener('click', stopProjectTransmission);
+
+    // Project device management
+    document.getElementById('btn-add-devices-to-project').addEventListener('click', showAddDevicesModal);
+    document.getElementById('btn-confirm-add-devices').addEventListener('click', addSelectedDevicesToProject);
+    document.getElementById('btn-cancel-add-devices').addEventListener('click', hideAddDevicesModal);
 });
+
+// Project CRUD functions
+async function editProject(projectId) {
+    try {
+        const project = await API.getProject(projectId);
+        if (!project) {
+            showNotification('Proyecto no encontrado', 'error');
+            return;
+        }
+        
+        currentProject = project;
+        document.getElementById('project-form-title').textContent = 'Editar Proyecto';
+        document.getElementById('project-submit-text').textContent = 'Actualizar Proyecto';
+        document.getElementById('project-name').value = project.name;
+        document.getElementById('project-description').value = project.description || '';
+        showView('projectForm');
+        
+    } catch (error) {
+        console.error('Error loading project for edit:', error);
+        showNotification('Error cargando proyecto', 'error');
+    }
+}
+
+async function deleteProject(projectId) {
+    try {
+        const project = await API.getProject(projectId);
+        if (!project) {
+            showNotification('Proyecto no encontrado', 'error');
+            return;
+        }
+        
+        if (!confirm(`¿Estás seguro de que quieres eliminar el proyecto "${project.name}"?`)) {
+            return;
+        }
+        
+        await API.deleteProject(projectId);
+        showNotification('Proyecto eliminado correctamente', 'success');
+        loadProjects();
+        
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        showNotification('Error eliminando proyecto', 'error');
+    }
+}
 
 // Initialize visualization tabs
 // (Device analytics/dashboard removed by design)
@@ -1806,5 +2685,12 @@ window.viewConnection = viewConnection;
 window.editConnection = editConnection;
 window.testConnection = testConnection;
 window.deleteConnection = deleteConnection;
+window.showProjectDetail = showProjectDetail;
+window.editProject = editProject;
+window.deleteProject = deleteProject;
+window.removeDeviceFromProject = removeDeviceFromProject;
+window.refreshProjectTransmissionHistory = refreshProjectTransmissionHistory;
+window.exportProjectTransmissionHistory = exportProjectTransmissionHistory;
+window.hideOperationResultsModal = hideOperationResultsModal;
 window.selectConnection = selectConnection;
 window.selectTransmitConnection = selectTransmitConnection;
