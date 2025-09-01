@@ -20,7 +20,8 @@ def handle_transmission_config(device_id):
             'device_type': device.device_type,
             'transmission_frequency': device.transmission_frequency,
             'transmission_enabled': device.transmission_enabled,
-            'selected_connection_id': getattr(device, 'selected_connection_id', None)
+            'selected_connection_id': getattr(device, 'selected_connection_id', None),
+            'include_device_id_in_payload': getattr(device, 'include_device_id_in_payload', False)
         })
 
     if request.method == 'PUT':
@@ -40,7 +41,8 @@ def handle_transmission_config(device_id):
             device_type=data.get('device_type'),
             frequency=data.get('transmission_frequency'),
             enabled=data.get('transmission_enabled'),
-            connection_id=data.get('connection_id')
+            connection_id=data.get('connection_id'),
+            include_device_id_in_payload=data.get('include_device_id_in_payload')
         )
         # NO reprogramar automáticamente al guardar configuración.
         # La programación se controla explícitamente vía /pause, /resume y /stop.

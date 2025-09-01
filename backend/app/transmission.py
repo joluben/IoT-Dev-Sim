@@ -41,15 +41,19 @@ class TransmissionManager:
         """Registra el resultado de una transmisión en la base de datos."""
         transmission_type = 'FULL_CSV'
         row_index = None
-        
-        if data_sent:
-            try:
-                data_dict = json.loads(data_sent) if isinstance(data_sent, str) else data_sent
-                if data_dict.get('row_index') is not None:
-                    transmission_type = 'SINGLE_ROW'
-                    row_index = data_dict.get('row_index')
-            except (json.JSONDecodeError, TypeError):
-                pass
+
+        # Con el nuevo formato, el payload puede ser:
+        # - lista de filas (FULL_CSV para WebApp)
+        # - una sola fila (dict) para Sensor (SINGLE_ROW)
+        try:
+            payload = json.loads(data_sent) if isinstance(data_sent, str) else data_sent
+            if isinstance(payload, list):
+                transmission_type = 'FULL_CSV'
+            elif isinstance(payload, dict):
+                transmission_type = 'SINGLE_ROW'
+        except (json.JSONDecodeError, TypeError):
+            # Mantener defaults si no se puede parsear
+            pass
         
         execute_insert(
             'INSERT INTO device_transmissions (device_id, connection_id, transmission_type, data_sent, row_index, status, response_data, error_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',

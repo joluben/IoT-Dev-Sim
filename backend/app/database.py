@@ -58,6 +58,8 @@ def init_db():
         add_column_if_not_exists(conn, 'devices', 'current_row_index', 'INTEGER DEFAULT 0')
         add_column_if_not_exists(conn, 'devices', 'last_transmission', 'DATETIME')
         add_column_if_not_exists(conn, 'devices', 'selected_connection_id', 'INTEGER')
+        # Nueva configuración: opcionalmente incluir device_id en payload de transmisión
+        add_column_if_not_exists(conn, 'devices', 'include_device_id_in_payload', 'BOOLEAN DEFAULT FALSE')
 
         # Nuevas tablas para Fase 7
         conn.execute('''

@@ -12,7 +12,8 @@ class Device:
 
     def __init__(self, id=None, reference=None, name=None, description=None, csv_data=None, created_at=None,
                  device_type='WebApp', transmission_frequency=3600, transmission_enabled=False,
-                 current_row_index=0, last_transmission=None, selected_connection_id=None):
+                 current_row_index=0, last_transmission=None, selected_connection_id=None,
+                 include_device_id_in_payload=False):
         self.id = id
         self.reference = reference
         self.name = name
@@ -25,6 +26,7 @@ class Device:
         self.current_row_index = current_row_index
         self.last_transmission = last_transmission
         self.selected_connection_id = selected_connection_id
+        self.include_device_id_in_payload = include_device_id_in_payload
 
     @staticmethod
     def generate_reference():
@@ -98,7 +100,8 @@ class Device:
             transmission_enabled=bool(get_value('transmission_enabled', False)),
             current_row_index=get_value('current_row_index', 0),
             last_transmission=get_value('last_transmission', None),
-            selected_connection_id=get_value('selected_connection_id', None)
+            selected_connection_id=get_value('selected_connection_id', None),
+            include_device_id_in_payload=bool(get_value('include_device_id_in_payload', False))
         )
 
     def to_dict(self):
@@ -115,7 +118,8 @@ class Device:
             'transmission_enabled': self.transmission_enabled,
             'current_row_index': self.current_row_index,
             'last_transmission': self.last_transmission,
-            'selected_connection_id': self.selected_connection_id
+            'selected_connection_id': self.selected_connection_id,
+            'include_device_id_in_payload': self.include_device_id_in_payload
         }
 
     def get_transmission_data(self):
@@ -127,7 +131,9 @@ class Device:
         return None
 
     def _get_full_csv_data(self):
-        """Prepara el payload para un dispositivo WebApp (todo el CSV)."""
+        """Prepara el payload para un dispositivo WebApp (todo el CSV) devolviendo solo filas CSV.
+        Si include_device_id_in_payload=True, agrega 'device_id' a cada fila.
+        """
         csv_content = self.get_csv_data_parsed()
         if not csv_content:
             return None
@@ -137,17 +143,19 @@ class Device:
             data_rows = csv_content.get('json_preview')
         if data_rows is None:
             return None
-        return {
-            "device_id": self.reference,
-            "device_name": self.name,
-            "device_type": self.device_type,
-            "transmission_timestamp": datetime.utcnow().isoformat() + 'Z',
-            "data_count": len(data_rows),
-            "data": data_rows
-        }
+        # Clonar para no mutar self.csv_data
+        result_rows = []
+        for r in data_rows:
+            row = dict(r)
+            if self.include_device_id_in_payload:
+                row['device_id'] = self.reference
+            result_rows.append(row)
+        return result_rows
 
     def _get_next_row_data(self):
-        """Prepara el payload para un dispositivo Sensor (siguiente fila)."""
+        """Prepara el payload para un dispositivo Sensor (siguiente fila) devolviendo solo la fila CSV.
+        Si include_device_id_in_payload=True, agrega 'device_id' a la fila.
+        """
         csv_content = self.get_csv_data_parsed()
         if not csv_content:
             return None
@@ -160,19 +168,13 @@ class Device:
         if self.current_row_index >= len(data_rows):
             return None  # No hay más filas para enviar
 
-        row_data = data_rows[self.current_row_index]
-        row_data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+        row = dict(data_rows[self.current_row_index])
+        row['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+        if self.include_device_id_in_payload:
+            row['device_id'] = self.reference
+        return row
 
-        return {
-            "device_id": self.reference,
-            "device_name": self.name,
-            "device_type": self.device_type,
-            "transmission_timestamp": row_data['timestamp'],
-            "row_index": self.current_row_index,
-            "data": row_data
-        }
-
-    def update_transmission_config(self, device_type=None, frequency=None, enabled=None, connection_id=None):
+    def update_transmission_config(self, device_type=None, frequency=None, enabled=None, connection_id=None, include_device_id_in_payload=None):
         """Actualiza la configuración de transmisión del dispositivo."""
         if device_type and device_type in self.DEVICE_TYPES:
             self.device_type = device_type
@@ -190,6 +192,10 @@ class Device:
             # Persist selected connection for manual or scheduled transmissions
             self.selected_connection_id = connection_id
             execute_insert('UPDATE devices SET selected_connection_id = ? WHERE id = ?', [self.selected_connection_id, self.id])
+
+        if include_device_id_in_payload is not None:
+            self.include_device_id_in_payload = bool(include_device_id_in_payload)
+            execute_insert('UPDATE devices SET include_device_id_in_payload = ? WHERE id = ?', [int(self.include_device_id_in_payload), self.id])
 
     def advance_sensor_row(self):
         """Avanza el índice de la fila para dispositivos Sensor y actualiza la BD."""
@@ -267,8 +273,8 @@ class Device:
                 INSERT INTO devices (
                     reference, name, description, csv_data, device_type,
                     transmission_frequency, transmission_enabled, current_row_index,
-                    selected_connection_id, last_transmission
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    selected_connection_id, last_transmission, include_device_id_in_payload
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', [
                 new_reference,
                 new_name,
@@ -279,7 +285,8 @@ class Device:
                 original_device.transmission_enabled,
                 0,  # Resetear current_row_index a 0
                 original_device.selected_connection_id,
-                None  # Resetear last_transmission
+                None,  # Resetear last_transmission
+                getattr(original_device, 'include_device_id_in_payload', False)
             ])
             
             # Obtener el dispositivo duplicado y agregarlo a la lista

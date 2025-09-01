@@ -2096,6 +2096,8 @@ async function loadTransmissionConfig(deviceId) {
         document.getElementById('device-type').value = config.device_type;
         document.getElementById('transmission-frequency').value = config.transmission_frequency;
         document.getElementById('transmission-enabled').checked = config.transmission_enabled;
+        const includeDeviceIdEl = document.getElementById('include-device-id');
+        if (includeDeviceIdEl) includeDeviceIdEl.checked = !!config.include_device_id_in_payload;
         
         // Show/hide sensor controls
         const sensorControls = document.getElementById('sensor-controls');
@@ -2142,6 +2144,7 @@ async function saveTransmissionConfig() {
     const frequency = parseInt(document.getElementById('transmission-frequency').value);
     const enabled = document.getElementById('transmission-enabled').checked;
     const connectionId = document.getElementById('transmission-connection').value;
+    const includeDeviceId = document.getElementById('include-device-id')?.checked || false;
     
     try {
         const response = await fetch(`${API_BASE}/devices/${currentDevice.id}/transmission-config`, {
@@ -2151,7 +2154,8 @@ async function saveTransmissionConfig() {
                 device_type: deviceType,
                 transmission_frequency: frequency,
                 transmission_enabled: enabled,
-                connection_id: connectionId || null
+                connection_id: connectionId || null,
+                include_device_id_in_payload: includeDeviceId
             })
         });
         
