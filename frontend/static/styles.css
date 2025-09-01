@@ -133,6 +133,15 @@ header p {
     background: #7f8c8d;
 }
 
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
 .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
