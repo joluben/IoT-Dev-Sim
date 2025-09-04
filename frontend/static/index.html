@@ -109,7 +109,7 @@
                     <div class="config-row">
                         <div class="form-group">
                             <label for="device-type">Tipo de Dispositivo</label>
-                            <select id="device-type" name="device_type">
+                            <select class="filter-select" id="device-type" name="device_type">
                                 <option value="WebApp">📱 WebApp (Envío completo)</option>
                                 <option value="Sensor">🔬 Sensor (Fila por fila)</option>
                             </select>
@@ -124,7 +124,7 @@
                     <div class="config-row">
                         <div class="form-group">
                             <label for="transmission-connection">Conexión para Transmisión</label>
-                            <select id="transmission-connection" name="transmission_connection">
+                            <select class="filter-select" id="transmission-connection" name="transmission_connection">
                                 <option value="">Seleccionar conexión...</option>
                             </select>
                         </div>
@@ -247,7 +247,7 @@
                     
                     <div class="form-group">
                         <label for="connection-type">Tipo de Conexión *</label>
-                        <select id="connection-type" name="type" required>
+                        <select class="filter-select" id="connection-type" name="type" required>
                             <option value="">Seleccionar tipo...</option>
                             <option value="MQTT">🔄 MQTT (Mosquitto)</option>
                             <option value="HTTPS">🌐 HTTPS REST API</option>
@@ -285,7 +285,7 @@
                     <h3>🔐 Autenticación</h3>
                     <div class="form-group">
                         <label for="auth-type">Tipo de Autenticación *</label>
-                        <select id="auth-type" name="auth_type" required>
+                        <select class="filter-select" id="auth-type" name="auth_type" required>
                             <option value="NONE">🔓 Sin Autenticación</option>
                             <option value="USER_PASS">👤 Usuario y Contraseña</option>
                             <option value="TOKEN">🎫 Token Bearer</option>
@@ -406,7 +406,7 @@
                 <div class="transmission-config">
                     <div class="form-group">
                         <label for="project-connection-selector">Conexión para Transmisión</label>
-                        <select id="project-connection-selector" name="connection_id">
+                        <select class="filter-select" id="project-connection-selector" name="connection_id">
                             <option value="">Usar conexión de cada dispositivo</option>
                         </select>
                     </div>
@@ -424,7 +424,7 @@
             <div class="project-devices">
                 <div class="devices-header">
                     <h3>📱 Dispositivos del Proyecto</h3>
-                    <button id="btn-add-devices-to-project" class="btn btn-primary">➕ Agregar Dispositivos</button>
+                    <button id="btn-add-devices-to-project" class="btn btn-primary btn-medium">➕ Agregar Dispositivos</button>
                 </div>
                 
                 <div class="project-devices-list" id="project-devices-list">

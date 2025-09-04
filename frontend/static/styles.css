@@ -113,6 +113,151 @@ html, body { height: 100%; }
     }
 }
 
+/* Dark Theme Variables and Overrides */
+:root {
+    --bg: #0b1220;                 /* page background */
+    --panel: #0f172a;              /* cards, views, modals */
+    --panel-elev: #111827;         /* elevated areas, inputs */
+    --text: #e5e7eb;               /* primary text */
+    --muted: #9ca3af;              /* secondary text */
+    --border: rgba(255,255,255,0.08);
+    --accent: #2563eb;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+}
+
+/* Base */
+body {
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+.app-shell {
+    background: var(--bg);
+}
+
+/* Panels and cards */
+.view,
+.device-card,
+.connection-card,
+.transmission-section,
+.form-section,
+.data-preview pre,
+.modal-content,
+.notification {
+    background: var(--panel);
+    color: var(--text);
+    border-color: var(--border);
+}
+
+/* Borders */
+.device-card,
+.connection-card,
+.preview-table th,
+.preview-table td,
+.upload-area,
+.modal-header,
+.modal-footer,
+.history-list,
+.history-item,
+.transmission-status,
+.progress-bar,
+.history-pagination,
+.table-container,
+.data-preview pre {
+    border-color: var(--border);
+}
+
+/* Headings and muted text */
+header,
+.view-header h2,
+.connection-title,
+.logo-text h1,
+.modal-header h3 { color: var(--text); }
+
+.device-description,
+.connection-info,
+.info-value,
+.form-help,
+.history-time,
+.history-response-time,
+.json-preview,
+.loading,
+.logo-text p { color: var(--muted); }
+
+/* Tables */
+.preview-table th { background: rgba(255,255,255,0.04); color: var(--text); }
+.preview-table td { background: transparent; color: var(--text); }
+
+/* Inputs */
+.form-group input,
+.form-group textarea,
+.filter-select {
+    background: var(--panel-elev);
+    color: var(--text);
+    border-color: var(--border);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: #94a3b8; }
+
+.form-group input:focus,
+.form-group textarea:focus { border-color: var(--accent); }
+
+/* Upload */
+.upload-area {
+    background: transparent;
+}
+.upload-area:hover,
+.upload-area.dragover {
+    background: rgba(255,255,255,0.03);
+    border-color: var(--accent);
+}
+
+/* Notifications by type */
+.notification { box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+.notification.success { border-left-color: var(--success); }
+.notification.error { border-left-color: var(--danger); }
+.notification.warning { border-left-color: var(--warning); }
+
+/* Status and badges */
+.device-reference { background: var(--accent); color: #fff; }
+.status-indicator.has-data { background: var(--success); }
+.status-indicator.no-data { background: var(--danger); }
+.connection-status.active { background: var(--success); }
+.connection-status.inactive { background: #6b7280; }
+
+/* Buttons */
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #374151; color: #e5e7eb; }
+.btn-secondary:hover { background: #4b5563; }
+.btn-danger { background: var(--danger); }
+.btn-danger:hover { background: #dc2626; }
+
+/* JSON preview */
+.json-preview {
+    background: #0b1220;
+    color: #e5e7eb;
+}
+
+/* Connection tags */
+.connection-type.mqtt { background: rgba(34,197,94,0.12); color: var(--success); }
+.connection-type.https { background: rgba(37,99,235,0.12); color: var(--accent); }
+
+/* History pills */
+.history-status.success { background-color: rgba(34,197,94,0.18); color: #bbf7d0; }
+.history-status.failed { background-color: rgba(239,68,68,0.18); color: #fecaca; }
+
+/* Progress */
+.progress-bar { background: rgba(255,255,255,0.08); }
+.progress-fill { background: var(--accent); }
+
+/* Modal close hover */
+.modal-close { color: var(--muted); }
+.modal-close:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -179,7 +324,7 @@ header p {
 /* Vistas */
 .view {
     display: none;
-    background: white;
+    background: #1f2937;
     border-radius: 8px;
     padding: 30px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -199,7 +344,7 @@ header p {
 }
 
 .view-header h2 {
-    color: #2c3e50;
+    color: white;
     font-size: 1.8rem;
 }
 
@@ -256,11 +401,12 @@ header p {
 }
 
 .device-card {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 20px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
 }
 
 .device-card:hover {
@@ -269,7 +415,7 @@ header p {
 }
 
 .device-card h3 {
-    color: #2c3e50;
+    color: var(--text);
     margin-bottom: 8px;
 }
 
@@ -314,11 +460,92 @@ header p {
 .device-actions {
     display: flex;
     gap: 10px;
+    margin-bottom: 15px;
 }
 
 .btn-small {
     padding: 8px 16px;
     font-size: 12px;
+}
+
+.btn-medium {
+    padding: 12px 24px;
+    font-size: 14px;
+    margin: 15px;
+}
+
+/* Proyectos - Grid y Cards */
+.projects-grid,
+#projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.project-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+}
+
+.project-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    border-color: rgba(255,255,255,0.14);
+}
+
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.project-header h3 {
+    color: var(--text);
+    font-size: 1.2rem;
+}
+
+.project-status {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+}
+
+.project-status.active { background: rgba(34,197,94,0.12); color: var(--success); border-color: rgba(34,197,94,0.25); }
+.project-status.paused { background: rgba(245,158,11,0.12); color: var(--warning); border-color: rgba(245,158,11,0.25); }
+.project-status.inactive { background: rgba(107,114,128,0.12); color: #9ca3af; border-color: rgba(107,114,128,0.25); }
+
+.project-info {
+    margin-bottom: 14px;
+}
+
+.project-description {
+    color: var(--muted);
+    margin-bottom: 12px;
+    min-height: 38px;
+}
+
+.project-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.project-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
 }
 
 /* Formularios */
@@ -334,7 +561,7 @@ header p {
     display: block;
     margin-bottom: 5px;
     font-weight: 500;
-    color: #2c3e50;
+    color: white;
 }
 
 .form-group input,
@@ -361,10 +588,11 @@ header p {
 
 /* Info del dispositivo */
 .device-info {
-    background: #f8f9fa;
+    background: #0b1220;
+    border: 1px solid #ddd;
     padding: 20px;
     border-radius: 8px;
-    margin-bottom: 30px;
+    margin-bottom: 6px;
 }
 
 .info-row {
@@ -426,13 +654,14 @@ header p {
 }
 
 .preview-panel {
-    background: #f8f9fa;
+    background: #1f2937;
+    border: 1px solid #ddd;
     border-radius: 8px;
     padding: 20px;
 }
 
 .preview-panel h4 {
-    color: #2c3e50;
+    color: #e9ecef;
     margin-bottom: 15px;
     padding-bottom: 8px;
     border-bottom: 1px solid #e9ecef;
@@ -457,7 +686,7 @@ header p {
 }
 
 .preview-table th {
-    background: #ecf0f1;
+    background: #1f2937;
     font-weight: 500;
     position: sticky;
     top: 0;
@@ -580,8 +809,8 @@ header p {
 }
 
 .connection-card {
-    background: white;
-    border: 1px solid #e1e8ed;
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 20px;
     transition: all 0.3s ease;
@@ -603,7 +832,7 @@ header p {
 .connection-title {
     font-size: 1.2rem;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text);
     margin-bottom: 5px;
 }
 
@@ -672,7 +901,7 @@ header p {
 .form-section {
     margin: 25px 0;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--panel-elev);
     border-radius: 8px;
     border-left: 4px solid #3498db;
 }
@@ -709,7 +938,7 @@ header p {
 .connection-history {
     margin-top: 30px;
     padding: 20px;
-    background: #f8f9fa;
+    background: #1f2937;
     border-radius: 8px;
 }
 
@@ -785,7 +1014,8 @@ header p {
 }
 
 .modal-content {
-    background: white;
+    background: #1f2937;
+    border: 1px solid #ddd;
     border-radius: 8px;
     max-width: 600px;
     width: 90%;
@@ -804,7 +1034,7 @@ header p {
 
 .modal-header h3 {
     margin: 0;
-    color: #2c3e50;
+    color: #e1e8ed;
 }
 
 .modal-close {
@@ -925,7 +1155,8 @@ header p {
 
 /* Estilos para Configuración de Transmisión */
 .transmission-section {
-    background: white;
+    background: #1f2937;
+    border: 1px solid #ddd;
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 20px;
@@ -1058,8 +1289,8 @@ header p {
 
 /* Transmission Status Indicators */
 .transmission-status {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: #1f2937;
+    border: 1px solid #ddd;
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 1rem;
@@ -1225,7 +1456,7 @@ header p {
     border: 1px solid #ced4da;
     border-radius: 4px;
     font-size: 0.875rem;
-    background: white;
+    background: #1f2937;
 }
 
 .history-pagination {
@@ -1246,6 +1477,7 @@ header p {
 .history-item {
     border-left: 4px solid #dee2e6;
     padding-left: 0.75rem;
+    background-color: #4a5563;
 }
 
 .history-item.success {

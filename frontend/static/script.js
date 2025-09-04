@@ -1818,7 +1818,7 @@ function showAdvancedFields(type) {
             <div class="form-row">
                 <div class="form-group">
                     <label for="mqtt-qos">QoS</label>
-                    <select id="mqtt-qos" name="qos">
+                    <select class="filter-select" id="mqtt-qos" name="qos">
                         <option value="0">0 - At most once</option>
                         <option value="1" selected>1 - At least once</option>
                         <option value="2">2 - Exactly once</option>
@@ -1837,7 +1837,7 @@ function showAdvancedFields(type) {
             <div class="form-row">
                 <div class="form-group">
                     <label for="https-method">Método HTTP</label>
-                    <select id="https-method" name="method">
+                    <select class="filter-select" id="https-method" name="method">
                         <option value="POST" selected>POST</option>
                         <option value="PUT">PUT</option>
                         <option value="PATCH">PATCH</option>
