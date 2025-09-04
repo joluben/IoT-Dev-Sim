@@ -12,6 +12,107 @@ body {
     line-height: 1.6;
 }
 
+/* App shell layout with left sidebar */
+html, body { height: 100%; }
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+    background: #f0f2f5;
+}
+
+.sidebar {
+    flex: 0 0 260px;
+    background: #1f2937;
+    color: #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 8px 20px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 16px;
+}
+
+.logo-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #111827;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+}
+
+.logo-text h1 {
+    font-size: 18px;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.logo-text p {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.sidebar-nav .nav-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: transparent;
+    color: #e5e7eb;
+}
+
+.sidebar-nav .nav-btn:hover {
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    transform: none;
+    box-shadow: none;
+}
+
+.sidebar-nav .nav-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.main-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 24px;
+}
+
+@media (max-width: 900px) {
+    .sidebar {
+        flex-basis: 72px;
+        padding: 16px 10px;
+        align-items: center;
+    }
+    .logo-text { display: none; }
+    .logo { justify-content: center; border-bottom: none; margin-bottom: 8px; }
+    .sidebar-nav { gap: 8px; width: 100%; }
+    .sidebar-nav .nav-btn {
+        padding: 10px;
+        text-align: center;
+        justify-content: center;
+        font-size: 0.95rem;
+    }
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;

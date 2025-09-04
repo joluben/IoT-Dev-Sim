@@ -111,19 +111,6 @@ docker-compose down
 docker-compose down -v
 ```
 
-### Estructura de Base de Datos
-
-```sql
-CREATE TABLE devices (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  reference TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  csv_data TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
 ## Licencia
 
 MIT License

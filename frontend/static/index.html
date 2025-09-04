@@ -8,16 +8,24 @@
     
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🔧 Device Simulator</h1>
-            <p>Gestión de Dispositivos y Conexiones Externas</p>
-            <nav class="main-nav">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-mark">🔧</div>
+                <div class="logo-text">
+                    <h1>Device Simulator</h1>
+                    <p>Gestión de Dispositivos y Conexiones</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
                 <button id="nav-projects" class="nav-btn">📁 Proyectos</button>
                 <button id="nav-devices" class="nav-btn active">📱 Dispositivos</button>
-                <button id="nav-connections" class="nav-btn">🔗 Conexiones</button>            
+                <button id="nav-connections" class="nav-btn">🔗 Conexiones</button>
             </nav>
-        </header>
+        </aside>
+
+        <main class="main-content">
+            <div class="container">
 
         <!-- Vista: Lista de Dispositivos -->
         <div id="devices-list-view" class="view active">
@@ -575,7 +583,8 @@
             </div>
         </div>
 
-        
+                    </div>
+        </main>
     </div>
 
     <!-- Notificaciones -->
