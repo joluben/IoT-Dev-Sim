@@ -546,8 +546,6 @@ async function loadProjects() {
                     <p class="project-description">${project.description || 'Sin descripción'}</p>
                     <div class="project-stats">
                         <span class="device-count">📱 ${project.devices_count} dispositivos</span>
-                        <span class="created-date">📅 ${formatDate(project.created_at)}</span>
-                    </div>
                 </div>
                 <div class="project-actions">
                     <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ Editar</button>
@@ -715,8 +713,8 @@ async function loadProjectDevices(projectId) {
                     </p>
                 </div>
                 <div class="device-actions">
-                    <button class="btn btn-sm btn-info" onclick="showDeviceDetail(${device.id})">Ver Detalle</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Remover</button>
+                    <button class="btn btn-sm btn-info" onclick="showDeviceDetail(${device.id})">Detalle</button>
+                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Eliminar</button>
                 </div>
             </div>
         `).join('');
@@ -1224,13 +1222,13 @@ function renderDevices(devices) {
             </div>
             <div class="device-actions">
                 <button class="btn btn-primary btn-small" onclick="viewDevice(${device.id})">
-                    Ver Detalle
+                    Detalle
                 </button>
                 <button class="btn btn-secondary btn-small" onclick="showDuplicateModal(${device.id})">
                     Duplicar
                 </button>
                 <button class="btn btn-danger btn-small" onclick="showDeleteModal(${device.id})">
-                    🗑️ Eliminar
+                    Eliminar
                 </button>
             </div>
         </div>
@@ -1390,8 +1388,8 @@ async function saveCSVData() {
     }
 }
 
-// Event Listeners
-document.addEventListener('DOMContentLoaded', function() {
+// Event Listeners 
+function initializeEventListeners() {
     // Navigation buttons
     document.getElementById('btn-new-device').addEventListener('click', () => {
         showView('createDevice');
@@ -1539,7 +1537,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load initial data
     loadDevices();
-});
+}
 
 // Navigation functions
 function setActiveNav(section) {
@@ -2519,20 +2517,10 @@ async function loadConnectionsForFilter() {
 
 // ...
 
-// Initialize application
-document.addEventListener('DOMContentLoaded', function() {
-    transmissionAPI = new TransmissionAPI();
-    realtimeMonitor = new RealtimeTransmissionMonitor();
-    
-    loadDevices();
-    loadConnections();
-    
-    // Initialize real-time monitoring
-    // Realtime monitor auto-connects internally
-});
+// Removed - consolidated into main DOMContentLoaded handler
 
-// Event Listeners for Transmission Controls
-document.addEventListener('DOMContentLoaded', function() {
+// Event Listeners for Transmission Controls - Will be initialized by main DOMContentLoaded handler
+function initializeTransmissionControls() {
     // Device type change handler
     document.getElementById('device-type').addEventListener('change', function() {
         const sensorControls = document.getElementById('sensor-controls');
@@ -2669,7 +2657,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Device deletion event listeners
     document.getElementById('btn-confirm-delete').addEventListener('click', confirmDeleteDevice);
     document.getElementById('btn-cancel-delete').addEventListener('click', hideDeleteModal);
-});
+}
 
 // Project CRUD functions
 async function editProject(projectId) {
@@ -2899,3 +2887,139 @@ window.exportProjectTransmissionHistory = exportProjectTransmissionHistory;
 window.hideOperationResultsModal = hideOperationResultsModal;
 window.selectConnection = selectConnection;
 window.selectTransmitConnection = selectTransmitConnection;
+
+// Initialize i18n system when DOM is loaded
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🚀 Initializing Device Simulator with i18n support');
+    
+    try {
+        // Initialize i18n system
+        await window.i18n.initialize();
+        
+        // Setup language selector
+        initializeLanguageSelector();
+        
+        // Initialize the rest of the application
+        await initializeApp();
+        
+        console.log('✅ Device Simulator initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing Device Simulator:', error);
+        showNotification('Error al inicializar la aplicación', 'error');
+    }
+});
+
+// Initialize language selector functionality
+function initializeLanguageSelector() {
+    const languageSelector = document.getElementById('language-selector');
+    
+    if (languageSelector) {
+        languageSelector.addEventListener('click', async () => {
+            const currentLang = window.i18n.getCurrentLanguage();
+            const newLang = currentLang === 'es' ? 'en' : 'es';
+            
+            try {
+                await window.i18n.changeLanguage(newLang);
+                
+                // Show notification about language change
+                const message = newLang === 'es' 
+                    ? 'Idioma cambiado a Español' 
+                    : 'Language changed to English';
+                showNotification(message, 'success');
+                
+                // Update dynamic content that might not be covered by data-i18n
+                updateDynamicTranslations();
+                
+            } catch (error) {
+                console.error('Error changing language:', error);
+                showNotification('Error al cambiar idioma', 'error');
+            }
+        });
+    }
+    
+    // Listen for language change events
+    document.addEventListener('languageChanged', (event) => {
+        console.log('🌐 Language changed to:', event.detail.language);
+        updateDynamicTranslations();
+    });
+}
+
+// Update translations for dynamically generated content
+function updateDynamicTranslations() {
+    // Update loading messages
+    const devicesLoading = document.getElementById('devices-loading');
+    if (devicesLoading) {
+        devicesLoading.textContent = window.i18n.t('devices.messages.loading_devices');
+    }
+    
+    const connectionsLoading = document.getElementById('connections-loading');
+    if (connectionsLoading) {
+        connectionsLoading.textContent = window.i18n.t('connections.messages.loading_connections');
+    }
+    
+    const projectsLoading = document.getElementById('projects-loading');
+    if (projectsLoading) {
+        projectsLoading.textContent = window.i18n.t('projects.messages.loading_projects');
+    }
+    
+    // Re-render current view content if needed
+    if (devices.length > 0) {
+        renderDevices();
+    }
+    if (connections.length > 0) {
+        renderConnections();
+    }
+}
+
+// Initialize sidebar navigation
+function initializeDefaultNavigation() {
+    // Navigation
+    document.getElementById('nav-devices').addEventListener('click', () => {
+        setActiveNav('devices');
+        showView('devicesList');
+        loadDevices();
+    });
+
+    document.getElementById('nav-projects').addEventListener('click', () => {
+        setActiveNav('projects');
+        showView('projectsList');
+        loadProjects();
+    });
+
+    document.getElementById('nav-connections').addEventListener('click', () => {
+        setActiveNav('connections');
+        showView('connectionsList');
+        loadConnections();
+    });
+
+    // Set default active navigation
+    setActiveNav('devices');
+    showView('devicesList');
+}
+
+// Initialize the main application
+async function initializeApp() {
+    // Initialize sidebar navigation
+    initializeDefaultNavigation();
+    
+    // Load initial data
+    await loadDevices();
+    await loadConnections();
+    
+    // Initialize forms and event listeners
+    initializeEventListeners();
+    
+    // Initialize transmission controls
+    initializeTransmissionControls();
+    
+    // Initialize transmission API if available
+    if (typeof TransmissionAPI !== 'undefined') {
+        transmissionAPI = new TransmissionAPI(API_BASE);
+    }
+    
+    // Initialize real-time monitoring if available
+    if (typeof RealtimeMonitor !== 'undefined') {
+        realtimeMonitor = new RealtimeMonitor();
+        realtimeMonitor.connect();
+    }
+}

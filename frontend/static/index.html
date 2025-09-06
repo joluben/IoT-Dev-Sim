@@ -10,18 +10,26 @@
 <body>
     <div class="app-shell">
         <aside class="sidebar">
-            <div class="logo">
-                <div class="logo-mark">🔧</div>
-                <div class="logo-text">
-                    <h1>Device Simulator</h1>
-                    <p>Gestión de Dispositivos y Conexiones</p>
+            <div class="sidebar-content">
+                <div class="logo">
+                    <div class="logo-text">
+                        <h1>Device Simulator</h1>
+                        <p>Gestión de Dispositivos y Conexiones</p>
+                    </div>
                 </div>
+                <nav class="sidebar-nav">
+                    <button id="nav-projects" class="nav-btn" data-i18n="common.navigation.projects">Proyectos</button>
+                    <button id="nav-devices" class="nav-btn active" data-i18n="common.navigation.devices">Dispositivos</button>
+                    <button id="nav-connections" class="nav-btn" data-i18n="common.navigation.connections">Conexiones</button>
+                </nav>
             </div>
-            <nav class="sidebar-nav">
-                <button id="nav-projects" class="nav-btn">📁 Proyectos</button>
-                <button id="nav-devices" class="nav-btn active">📱 Dispositivos</button>
-                <button id="nav-connections" class="nav-btn">🔗 Conexiones</button>
-            </nav>
+            
+            <!-- Selector de Idioma -->
+            <div class="language-selector">
+                <button id="language-selector" class="language-btn" title="Cambiar idioma">
+                    🌐 <span data-i18n="common.language.current">Español</span>
+                </button>
+            </div>
         </aside>
 
         <main class="main-content">
@@ -30,8 +38,8 @@
         <!-- Vista: Lista de Dispositivos -->
         <div id="devices-list-view" class="view active">
             <div class="view-header">
-                <h2>Dispositivos</h2>
-                <button id="btn-new-device" class="btn btn-primary">Nuevo Dispositivo</button>
+                <h2 data-i18n="devices.title">Dispositivos</h2>
+                <button id="btn-new-device" class="btn btn-primary" data-i18n="devices.create_device">Nuevo Dispositivo</button>
             </div>
             
             <div class="devices-grid" id="devices-grid">
@@ -590,6 +598,7 @@
     <!-- Notificaciones -->
     <div id="notifications" class="notifications-container"></div>
 
+    <script src="i18n.js"></script>
     <script src="transmission-api.js"></script>
     <script src="realtime.js"></script>
     <script src="script.js"></script>

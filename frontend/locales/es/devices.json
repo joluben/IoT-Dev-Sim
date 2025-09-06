@@ -1,0 +1,46 @@
+{
+  "title": "Dispositivos",
+  "device": "Dispositivo",
+  "devices": "Dispositivos",
+  "create_device": "Crear Dispositivo",
+  "edit_device": "Editar Dispositivo",
+  "device_details": "Detalles del Dispositivo",
+  "device_form": {
+    "name": "Nombre del Dispositivo",
+    "description": "Descripción",
+    "reference": "Referencia",
+    "device_type": "Tipo de Dispositivo",
+    "csv_file": "Archivo CSV",
+    "transmission_frequency": "Frecuencia de Transmisión",
+    "transmission_enabled": "Transmisión Habilitada"
+  },
+  "device_types": {
+    "WebApp": "Aplicación Web",
+    "Sensor": "Sensor"
+  },
+  "actions": {
+    "upload_csv": "Subir CSV",
+    "start_transmission": "Iniciar Transmisión",
+    "stop_transmission": "Detener Transmisión",
+    "pause_transmission": "Pausar Transmisión",
+    "resume_transmission": "Reanudar Transmisión",
+    "transmit_now": "Transmitir Ahora"
+  },
+  "messages": {
+    "device_created": "Dispositivo creado exitosamente",
+    "device_updated": "Dispositivo actualizado exitosamente",
+    "device_deleted": "Dispositivo eliminado exitosamente",
+    "csv_uploaded": "Archivo CSV subido exitosamente",
+    "transmission_started": "Transmisión iniciada",
+    "transmission_stopped": "Transmisión detenida",
+    "no_devices": "No hay dispositivos disponibles",
+    "loading_devices": "Cargando dispositivos..."
+  },
+  "duplicate": {
+    "title": "Duplicar Dispositivo",
+    "count_label": "Número de duplicados",
+    "preview_label": "Vista previa de nombres:",
+    "confirm": "Confirmar Duplicación",
+    "success": "{{count}} dispositivos duplicados exitosamente"
+  }
+}

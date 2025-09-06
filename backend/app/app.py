@@ -84,10 +84,15 @@ def create_app():
     
     # Ruta para servir frontend
     frontend_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'static')
+    locales_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'locales')
     
     @app.route('/')
     def serve_frontend():
         return send_from_directory(frontend_dir, 'index.html')
+    
+    @app.route('/locales/<path:path>')
+    def serve_locales(path):
+        return send_from_directory(locales_dir, path)
     
     @app.route('/<path:path>')
     def serve_static(path):

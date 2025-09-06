@@ -1,0 +1,51 @@
+{
+  "app": {
+    "title": "Device Manager",
+    "subtitle": "IoT Data Transmission Platform"
+  },
+  "navigation": {
+    "devices": "Devices",
+    "connections": "Connections",
+    "projects": "Projects",
+    "dashboard": "Dashboard"
+  },
+  "actions": {
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "view_details": "View Details",
+    "duplicate": "Duplicate",
+    "new": "New"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning"
+  },
+  "language": {
+    "current": "English",
+    "switch_to": "Switch to Spanish",
+    "label": "Language"
+  },
+  "common": {
+    "name": "Name",
+    "description": "Description",
+    "reference": "Reference",
+    "type": "Type",
+    "created_at": "Created at",
+    "updated_at": "Updated at",
+    "no_data": "No data available",
+    "loading_error": "Error loading data"
+  }
+}

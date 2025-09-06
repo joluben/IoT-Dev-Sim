@@ -1,0 +1,51 @@
+{
+  "app": {
+    "title": "Gestor de Dispositivos",
+    "subtitle": "Plataforma de Transmisión de Datos IoT"
+  },
+  "navigation": {
+    "devices": "Dispositivos",
+    "connections": "Conexiones",
+    "projects": "Proyectos",
+    "dashboard": "Panel"
+  },
+  "actions": {
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "export": "Exportar",
+    "view_details": "Ver Detalles",
+    "duplicate": "Duplicar",
+    "new": "Nuevo"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "loading": "Cargando...",
+    "success": "Éxito",
+    "error": "Error",
+    "warning": "Advertencia"
+  },
+  "language": {
+    "current": "Español",
+    "switch_to": "Cambiar a Inglés",
+    "label": "Idioma"
+  },
+  "common": {
+    "name": "Nombre",
+    "description": "Descripción",
+    "reference": "Referencia",
+    "type": "Tipo",
+    "created_at": "Creado el",
+    "updated_at": "Actualizado el",
+    "no_data": "No hay datos disponibles",
+    "loading_error": "Error al cargar los datos"
+  }
+}

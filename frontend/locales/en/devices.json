@@ -1,0 +1,46 @@
+{
+  "title": "Devices",
+  "device": "Device",
+  "devices": "Devices",
+  "create_device": "Create Device",
+  "edit_device": "Edit Device",
+  "device_details": "Device Details",
+  "device_form": {
+    "name": "Device Name",
+    "description": "Description",
+    "reference": "Reference",
+    "device_type": "Device Type",
+    "csv_file": "CSV File",
+    "transmission_frequency": "Transmission Frequency",
+    "transmission_enabled": "Transmission Enabled"
+  },
+  "device_types": {
+    "WebApp": "Web Application",
+    "Sensor": "Sensor"
+  },
+  "actions": {
+    "upload_csv": "Upload CSV",
+    "start_transmission": "Start Transmission",
+    "stop_transmission": "Stop Transmission",
+    "pause_transmission": "Pause Transmission",
+    "resume_transmission": "Resume Transmission",
+    "transmit_now": "Transmit Now"
+  },
+  "messages": {
+    "device_created": "Device created successfully",
+    "device_updated": "Device updated successfully",
+    "device_deleted": "Device deleted successfully",
+    "csv_uploaded": "CSV file uploaded successfully",
+    "transmission_started": "Transmission started",
+    "transmission_stopped": "Transmission stopped",
+    "no_devices": "No devices available",
+    "loading_devices": "Loading devices..."
+  },
+  "duplicate": {
+    "title": "Duplicate Device",
+    "count_label": "Number of duplicates",
+    "preview_label": "Name preview:",
+    "confirm": "Confirm Duplication",
+    "success": "{{count}} devices duplicated successfully"
+  }
+}

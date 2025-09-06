@@ -1,0 +1,44 @@
+{
+  "title": "Connections",
+  "connection": "Connection",
+  "connections": "Connections",
+  "create_connection": "Create Connection",
+  "edit_connection": "Edit Connection",
+  "connection_details": "Connection Details",
+  "connection_form": {
+    "name": "Connection Name",
+    "description": "Description",
+    "connection_type": "Connection Type",
+    "endpoint": "Endpoint",
+    "auth_type": "Authentication Type",
+    "username": "Username",
+    "password": "Password",
+    "token": "Token",
+    "api_key": "API Key",
+    "is_active": "Active"
+  },
+  "connection_types": {
+    "MQTT": "MQTT",
+    "HTTPS": "HTTPS"
+  },
+  "auth_types": {
+    "none": "No authentication",
+    "user_pass": "Username/Password",
+    "token": "Token",
+    "api_key": "API Key"
+  },
+  "actions": {
+    "test_connection": "Test Connection",
+    "activate": "Activate",
+    "deactivate": "Deactivate"
+  },
+  "messages": {
+    "connection_created": "Connection created successfully",
+    "connection_updated": "Connection updated successfully",
+    "connection_deleted": "Connection deleted successfully",
+    "connection_test_success": "Connection test successful",
+    "connection_test_failed": "Connection test failed",
+    "no_connections": "No connections available",
+    "loading_connections": "Loading connections..."
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Proyectos",
+  "project": "Proyecto",
+  "projects": "Proyectos",
+  "create_project": "Crear Proyecto",
+  "edit_project": "Editar Proyecto",
+  "project_details": "Detalles del Proyecto",
+  "project_form": {
+    "name": "Nombre del Proyecto",
+    "description": "Descripción",
+    "assigned_devices": "Dispositivos Asignados",
+    "available_devices": "Dispositivos Disponibles"
+  },
+  "actions": {
+    "assign_devices": "Asignar Dispositivos",
+    "remove_devices": "Remover Dispositivos",
+    "bulk_start_transmission": "Iniciar Transmisión Masiva",
+    "bulk_stop_transmission": "Detener Transmisión Masiva"
+  },
+  "messages": {
+    "project_created": "Proyecto creado exitosamente",
+    "project_updated": "Proyecto actualizado exitosamente",
+    "project_deleted": "Proyecto eliminado exitosamente",
+    "devices_assigned": "Dispositivos asignados al proyecto",
+    "devices_removed": "Dispositivos removidos del proyecto",
+    "no_projects": "No hay proyectos disponibles",
+    "loading_projects": "Cargando proyectos..."
+  }
+}

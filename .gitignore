@@ -48,6 +48,9 @@ uploads/
 *.csv
 *.json
 
+# Allow localization files
+!frontend/locales/**/*.json
+
 # Logs
 *.log
 logs/

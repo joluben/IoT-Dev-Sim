@@ -1,0 +1,29 @@
+{
+  "title": "Projects",
+  "project": "Project",
+  "projects": "Projects",
+  "create_project": "Create Project",
+  "edit_project": "Edit Project",
+  "project_details": "Project Details",
+  "project_form": {
+    "name": "Project Name",
+    "description": "Description",
+    "assigned_devices": "Assigned Devices",
+    "available_devices": "Available Devices"
+  },
+  "actions": {
+    "assign_devices": "Assign Devices",
+    "remove_devices": "Remove Devices",
+    "bulk_start_transmission": "Bulk Start Transmission",
+    "bulk_stop_transmission": "Bulk Stop Transmission"
+  },
+  "messages": {
+    "project_created": "Project created successfully",
+    "project_updated": "Project updated successfully",
+    "project_deleted": "Project deleted successfully",
+    "devices_assigned": "Devices assigned to project",
+    "devices_removed": "Devices removed from project",
+    "no_projects": "No projects available",
+    "loading_projects": "Loading projects..."
+  }
+}
