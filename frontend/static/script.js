@@ -1257,6 +1257,12 @@ async function viewDevice(deviceId) {
         await loadTransmissionConfig(deviceId);
         await loadTransmissionHistory(deviceId);
         
+        // Initialize modern layout functionality
+        setTimeout(() => {
+            initializeUploadArea();
+            initializePreviewTabs();
+        }, 100);
+        
         showView('deviceDetail');
     } catch (error) {
         showNotification('Error al cargar dispositivo: ' + error.message, 'error');
@@ -1264,30 +1270,57 @@ async function viewDevice(deviceId) {
 }
 
 function renderDeviceDetail(device) {
+    // Update header elements
     document.getElementById('device-detail-title').textContent = device.name;
+    document.getElementById('device-reference').textContent = device.reference;
     
+    // Update status badge
+    const statusText = device.csv_data ? 'Datos cargados' : 'Sin datos CSV';
+    const statusBadge = document.getElementById('device-status-badge');
+    const statusTextElement = document.getElementById('device-status-text');
+    
+    if (statusTextElement) {
+        statusTextElement.textContent = statusText;
+    }
+    
+    if (statusBadge) {
+        if (device.csv_data) {
+            statusBadge.style.background = 'rgba(34,197,94,0.12)';
+            statusBadge.style.color = 'var(--success)';
+            statusBadge.querySelector('.status-dot').style.background = 'var(--success)';
+        } else {
+            statusBadge.style.background = 'rgba(156,163,175,0.12)';
+            statusBadge.style.color = 'var(--muted)';
+            statusBadge.querySelector('.status-dot').style.background = 'var(--muted)';
+        }
+    }
+    
+    // Update info panel with new structure
     elements.deviceInfo.innerHTML = `
-        <div class="info-row">
-            <div class="info-label">Referencia:</div>
-            <div class="info-value">${device.reference}</div>
+        <div class="info-item">
+            <span class="info-label">Referencia</span>
+            <span class="info-value">${device.reference}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Nombre:</div>
-            <div class="info-value">${device.name}</div>
+        <div class="info-item">
+            <span class="info-label">Nombre</span>
+            <span class="info-value">${device.name}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Descripción:</div>
-            <div class="info-value">${device.description || 'Sin descripción'}</div>
+        <div class="info-item">
+            <span class="info-label">Descripción</span>
+            <span class="info-value">${device.description || 'Sin descripción'}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Creado:</div>
-            <div class="info-value">${formatDate(device.created_at)}</div>
+        <div class="info-item">
+            <span class="info-label">Creado</span>
+            <span class="info-value">${formatDate(device.created_at)}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Estado CSV:</div>
-            <div class="info-value">${device.csv_data ? 'Datos cargados' : 'Sin datos'}</div>
+        <div class="info-item">
+            <span class="info-label">Estado CSV</span>
+            <span class="info-value">${device.csv_data ? 'Datos cargados' : 'Sin datos'}</span>
         </div>
     `;
+
+    // Initialize preview tabs functionality
+    initializePreviewTabs();
 
     // If device already has CSV data saved, render previews by default
     const sendBtn = document.getElementById('btn-send-data');
@@ -1295,16 +1328,93 @@ function renderDeviceDetail(device) {
         csvPreviewData = device.csv_data;
         // Render CSV table and JSON preview
         elements.csvPreviewTable.innerHTML = renderCSVPreview(csvPreviewData);
-        elements.jsonPreview.textContent = JSON.stringify(csvPreviewData.json_preview || [], null, 2);
+        updatePreviewContent('csv'); // Show CSV by default
         elements.previewSection.style.display = 'block';
         if (sendBtn) sendBtn.style.display = 'inline-block';
     } else {
         // Hide preview if no data
         elements.csvPreviewTable.innerHTML = '';
-        elements.jsonPreview.textContent = '';
         elements.previewSection.style.display = 'none';
         if (sendBtn) sendBtn.style.display = 'none';
     }
+}
+
+// Initialize preview tabs functionality
+function initializePreviewTabs() {
+    const tabs = document.querySelectorAll('.preview-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            // Add active to clicked tab
+            tab.classList.add('active');
+            
+            // Update content based on tab
+            const tabType = tab.getAttribute('data-tab');
+            updatePreviewContent(tabType);
+        });
+    });
+}
+
+// Update preview content based on tab selection
+function updatePreviewContent(tabType) {
+    const content = document.getElementById('preview-content');
+    if (!content || !csvPreviewData) return;
+    
+    if (tabType === 'csv') {
+        content.innerHTML = `
+            <div class="table-container">
+                <table id="csv-preview-table" class="preview-table">
+                    ${renderCSVPreview(csvPreviewData)}
+                </table>
+            </div>
+        `;
+    } else if (tabType === 'json') {
+        content.innerHTML = `
+            <pre class="json-preview">${JSON.stringify(csvPreviewData.json_preview || [], null, 2)}</pre>
+        `;
+    }
+}
+
+// Initialize upload functionality for modern layout
+function initializeUploadArea() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('csv-file-input');
+    const uploadLink = uploadArea?.querySelector('.upload-link');
+
+    if (!uploadArea || !fileInput) return;
+
+    // Click to select file
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            handleFileUpload(file);
+        }
+    });
+
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
 }
 
 // CSV Functions
@@ -1323,9 +1433,8 @@ async function handleFileUpload(file) {
         }
 
         csvPreviewData = result.preview;
-        // Populate CSV and JSON previews
-        elements.csvPreviewTable.innerHTML = renderCSVPreview(csvPreviewData);
-        elements.jsonPreview.textContent = JSON.stringify(csvPreviewData.json_preview || [], null, 2);
+        // Update preview content with new structure
+        updatePreviewContent('csv'); // Show CSV by default
         elements.previewSection.style.display = 'block';
         // Enable send button when there is preview data
         const sendBtn = document.getElementById('btn-send-data');

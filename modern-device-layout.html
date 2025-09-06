@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispositivo - Caudalímetro 15</title>
+    <style>
+        /* Reset y base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #0b1220;
+            color: #e5e7eb;
+            line-height: 1.6;
+        }
+
+        /* Variables */
+        :root {
+            --bg: #0b1220;
+            --panel: #0f172a;
+            --panel-elev: #111827;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --border: rgba(255,255,255,0.08);
+            --accent: #2563eb;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        /* Layout principal */
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* Header compacto */
+        .header-section {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .device-title-area {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .device-title {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0;
+        }
+
+        .device-reference {
+            background: var(--accent);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .device-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(34,197,94,0.12);
+            color: var(--success);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-1px);
+        }
+
+        /* Grid principal */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* Panel de información */
+        .info-panel {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .info-value {
+            color: var(--text);
+            font-weight: 500;
+            text-align: right;
+        }
+
+        /* Upload compacto */
+        .upload-panel {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 32px 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: var(--accent);
+            background: rgba(37,99,235,0.05);
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-text {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .upload-link {
+            color: var(--accent);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* Sección de transmisión */
+        .transmission-section {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .transmission-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .transmission-status-compact {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--panel-elev);
+            padding: 12px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .status-indicator-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .transmission-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #6c757d;
+        }
+
+        .state-inactive {
+            background-color: #6c757d;
+        }
+
+        .state-text {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        /* Grid de configuración */
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            background: var(--panel-elev);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .checkbox-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+        }
+
+        /* Controles de sensor */
+        .sensor-controls {
+            background: var(--panel-elev);
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .current-position {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .position-info {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .position-value {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Botones de acción */
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        /* Historial compacto */
+        .history-section {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-select {
+            background: var(--panel-elev);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .history-list {
+            background: var(--panel-elev);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .empty-state {
+            padding: 40px;
+            text-align: center;
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* Preview mejorado */
+        .preview-section {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .preview-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: var(--panel-elev);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .preview-tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .preview-tab.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .preview-content {
+            background: var(--panel-elev);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .table-container {
+            max-height: 300px;
+            overflow: auto;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preview-table th {
+            background: rgba(255,255,255,0.04);
+            color: var(--text);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .preview-table td {
+            color: var(--text);
+        }
+
+        .json-preview {
+            background: #0b1220;
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 16px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .device-title-area {
+                justify-content: center;
+            }
+            
+            .action-buttons {
+                justify-content: center;
+            }
+            
+            .history-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-select {
+                width: 100%;
+            }
+            
+            .preview-actions {
+                flex-direction: column;
+            }
+            
+            .current-position {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        /* Animaciones sutiles */
+        .panel-title,
+        .info-item,
+        .form-group {
+            transition: all 0.2s ease;
+        }
+
+        .info-panel:hover,
+        .upload-panel:hover,
+        .transmission-section:hover,
+        .history-section:hover,
+        .preview-section:hover {
+            border-color: rgba(255,255,255,0.12);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header compacto -->
+        <section class="header-section">
+            <div class="header-content">
+                <div class="device-title-area">
+                    <h1 class="device-title">Caudalímetro 15</h1>
+                    <span class="device-reference">LEQABEF3</span>
+                    <div class="device-status-badge">
+                        <div class="status-dot"></div>
+                        <span>Datos cargados</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary">
+                    ← Volver
+                </button>
+            </div>
+        </section>
+
+        <!-- Grid principal -->
+        <div class="main-grid">
+            <!-- Panel de información -->
+            <div class="info-panel">
+                <h3 class="panel-title">
+                    📋 Información del Dispositivo
+                </h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Referencia</span>
+                        <span class="info-value">LEQABEF3</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Nombre</span>
+                        <span class="info-value">Caudalímetro 15</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Descripción</span>
+                        <span class="info-value">Sensor de caudal en la red de distribución</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Creado</span>
+                        <span class="info-value">4 de septiembre de 2025, 14:54</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Estado CSV</span>
+                        <span class="info-value">Datos cargados</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de upload -->
+            <div class="upload-panel">
+                <h3 class="panel-title">
+                    📁 Importar CSV
+                </h3>
+                <div class="upload-area">
+                    <div class="upload-icon">📄</div>
+                    <p class="upload-text">
+                        Arrastra tu archivo CSV aquí o 
+                        <span class="upload-link">selecciona un archivo</span>
+                    </p>
+                    <input type="file" accept=".csv" hidden>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuración de transmisión -->
+        <section class="transmission-section">
+            <div class="transmission-header">
+                <h3 class="panel-title">
+                    📡 Configuración de Transmisión
+                </h3>
+                <div class="transmission-status-compact">
+                    <div class="status-indicator-container">
+                        <div class="transmission-indicator state-inactive"></div>
+                        <span class="state-text">Inactivo</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controles del sensor -->
+            <div class="sensor-controls">
+                <div class="current-position">
+                    <span class="position-info">
+                        Posición actual: <span class="position-value">3</span>
+                    </span>
+                    <button class="btn btn-warning btn-sm">
+                        🔄 Reiniciar Posición
+                    </button>
+                </div>
+            </div>
+
+            <!-- Grid de configuración -->
+            <div class="config-grid">
+                <div class="form-group">
+                    <label>Tipo de Dispositivo</label>
+                    <select>
+                        <option value="WebApp">📱 WebApp (Envío completo)</option>
+                        <option value="Sensor">🔬 Sensor (Fila por fila)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Frecuencia (segundos)</label>
+                    <input type="number" value="3600" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label>Conexión para Transmisión</label>
+                    <select>
+                        <option value="">Seleccionar conexión...</option>
+                        <option value="1">MQTT Mosquitto (undefined)</option>
+                    </select>
+                </div>
+
+                <div class="checkbox-container">
+                    <label class="checkbox-label">
+                        <input type="checkbox">
+                        <span>Transmisión automática habilitada</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox">
+                        <span>Incluir device_id en payload</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="action-buttons">
+                <button class="btn btn-primary">
+                    💾 Guardar Configuración
+                </button>
+                <button class="btn btn-success">
+                    📤 Transmitir Ahora
+                </button>
+                <button class="btn btn-warning" style="display: none;">
+                    ⏸️ Pausar
+                </button>
+                <button class="btn btn-info" style="display: none;">
+                    ▶️ Reanudar
+                </button>
+                <button class="btn btn-danger" disabled>
+                    ⏹️ Parar
+                </button>
+            </div>
+        </section>
+
+        <!-- Historial de transmisiones -->
+        <section class="history-section">
+            <div class="transmission-header">
+                <h3 class="panel-title">
+                    📋 Historial de Transmisiones
+                </h3>
+                <div class="history-controls">
+                    <select class="filter-select">
+                        <option value="">Todos los estados</option>
+                        <option value="SUCCESS">Exitosas</option>
+                        <option value="FAILED">Fallidas</option>
+                    </select>
+                    <select class="filter-select">
+                        <option value="">Todas las conexiones</option>
+                        <option value="1">MQTT Mosquitto</option>
+                    </select>
+                    <button class="btn btn-sm btn-secondary">
+                        📥 Exportar
+                    </button>
+                    <button class="btn btn-sm btn-primary">
+                        🔄 Actualizar
+                    </button>
+                </div>
+            </div>
+            <div class="history-list">
+                <div class="empty-state">Sin transmisiones</div>
+            </div>
+        </section>
+
+        <!-- Preview mejorado -->
+        <section class="preview-section">
+            <h3 class="panel-title">
+                👁️ Previsualización
+            </h3>
+            
+            <div class="preview-tabs">
+                <button class="preview-tab active">Vista CSV</button>
+                <button class="preview-tab">Vista JSON</button>
+            </div>
+
+            <div class="preview-content">
+                <div class="table-container">
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th>value</th>
+                                <th>id</th>
+                                <th>unit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>165.18</td>
+                                <td>FLOW_SENSOR_001</td>
+                                <td>m3</td>
+                            </tr>
+                            <tr>
+                                <td>30.9</td>
+                                <td>FLOW_SENSOR_001</td>
+                                <td>m3</td>
+                            </tr>
+                            <tr>
+                                <td>61.99</td>
+                                <td>FLOW_SENSOR_001</td>
+                                <td>m3</td>
+                            </tr>
+                            <tr>
+                                <td>71.82</td>
+                                <td>FLOW_SENSOR_001</td>
+                                <td>m3</td>
+                            </tr>
+                            <tr>
+                                <td>154.53</td>
+                                <td>FLOW_SENSOR_001</td>
+                                <td>m3</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="preview-actions">
+                <button class="btn btn-secondary">Cancelar</button>
+                <button class="btn btn-primary">Guardar Datos</button>
+                <button class="btn btn-success">
+                    📤 Enviar a Conexión
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Funcionalidad básica para las pestañas
+        document.querySelectorAll('.preview-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remover active de todas las pestañas
+                document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+                // Agregar active a la pestaña clickeada
+                tab.classList.add('active');
+                
+                // Aquí puedes agregar lógica para cambiar el contenido
+                const isCSV = tab.textContent.includes('CSV');
+                const content = document.querySelector('.preview-content');
+                
+                if (isCSV) {
+                    content.innerHTML = `
+                        <div class="table-container">
+                            <table class="preview-table">
+                                <thead>
+                                    <tr>
+                                        <th>value</th>
+                                        <th>id</th>
+                                        <th>unit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>165.18</td><td>FLOW_SENSOR_001</td><td>m3</td></tr>
+                                    <tr><td>30.9</td><td>FLOW_SENSOR_001</td><td>m3</td></tr>
+                                    <tr><td>61.99</td><td>FLOW_SENSOR_001</td><td>m3</td></tr>
+                                    <tr><td>71.82</td><td>FLOW_SENSOR_001</td><td>m3</td></tr>
+                                    <tr><td>154.53</td><td>FLOW_SENSOR_001</td><td>m3</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <pre class="json-preview">[
+  {
+    "id": "FLOW_SENSOR_001",
+    "unit": "m3",
+    "value": "165.18"
+  },
+  {
+    "id": "FLOW_SENSOR_001",
+    "unit": "m3",
+    "value": "30.9"
+  },
+  {
+    "id": "FLOW_SENSOR_001",
+    "unit": "m3",
+    "value": "61.99"
+  },
+  {
+    "id": "FLOW_SENSOR_001",
+    "unit": "m3",
+    "value": "71.82"
+  },
+  {
+    "id": "FLOW_SENSOR_001",
+    "unit": "m3",
+    "value": "154.53"
+  }
+]</pre>
+                    `;
+                }
+            });
+        });
+
+        // Funcionalidad para el upload de archivos
+        const uploadArea = document.querySelector('.upload-area');
+        const fileInput = document.querySelector('input[type="file"]');
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            // Aquí manejarías el archivo
+        });
+    </script>
+</body>
+</html>
