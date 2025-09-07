@@ -1608,11 +1608,13 @@ function initializeEventListeners() {
     // Connection event listeners
     document.getElementById('btn-new-connection').addEventListener('click', () => {
         editingConnection = null;
-        document.getElementById('connection-form-title').textContent = 'Nueva Conexión';
-        document.getElementById('connection-submit-text').textContent = 'Crear Conexión';
+        document.getElementById('connection-form-title').textContent = '🔌 Nueva Conexión';
+        document.getElementById('connection-submit-text').textContent = '💾 Crear Conexión';
         document.getElementById('connection-form').reset();
         clearAuthFields();
         clearAdvancedFields();
+        updateConfigPreview();
+        updateTestButtonState();
         showView('connectionForm');
     });
 
@@ -1624,6 +1626,13 @@ function initializeEventListeners() {
         showView('connectionsList');
     });
 
+    // Edit connection from detail view
+    document.getElementById('btn-edit-connection').addEventListener('click', () => {
+        if (currentConnection) {
+            editConnection(currentConnection.id);
+        }
+    });
+
     document.getElementById('btn-cancel-connection').addEventListener('click', () => {
         document.getElementById('connection-form').reset();
         showView('connectionsList');
@@ -1632,6 +1641,37 @@ function initializeEventListeners() {
     // Connection form handlers
     document.getElementById('connection-type').addEventListener('change', handleConnectionTypeChange);
     document.getElementById('auth-type').addEventListener('change', handleAuthTypeChange);
+    
+    // Advanced toggle handler
+    const toggleAdvanced = document.getElementById('toggle-advanced');
+    if (toggleAdvanced) {
+        toggleAdvanced.addEventListener('click', function() {
+            const advancedConfig = document.getElementById('advanced-config');
+            const icon = this.querySelector('.toggle-icon');
+            if (advancedConfig.classList.contains('hidden')) {
+                advancedConfig.classList.remove('hidden');
+                icon.textContent = '▲';
+            } else {
+                advancedConfig.classList.add('hidden');
+                icon.textContent = '▼';
+            }
+        });
+    }
+    
+    // Form input listeners for config preview
+    document.addEventListener('input', function(e) {
+        if (e.target.closest('#connection-form')) {
+            updateConfigPreview();
+            updateTestButtonState();
+        }
+    });
+    
+    document.addEventListener('change', function(e) {
+        if (e.target.closest('#connection-form')) {
+            updateConfigPreview();
+            updateTestButtonState();
+        }
+    });
 
     document.getElementById('connection-form').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -1674,13 +1714,19 @@ async function loadConnections() {
     const grid = document.getElementById('connections-grid');
     const loading = document.getElementById('connections-loading');
     
-    if (!grid || !loading) {
-        console.error('Elements not found: connections-grid or connections-loading');
+    if (!grid) {
+        console.warn('connections-grid element not found, skipping load');
         return;
     }
     
+    if (!loading) {
+        console.warn('connections-loading element not found, continuing without loading indicator');
+    }
+    
     try {
-        loading.style.display = 'block';
+        if (loading) {
+            loading.style.display = 'block';
+        }
         const connections = await API.getConnections();
         
         if (connections.length === 0) {
@@ -1816,28 +1862,68 @@ async function editConnection(id) {
         const connection = await API.getConnection(id);
         editingConnection = connection;
         
-        document.getElementById('connection-form-title').textContent = 'Editar Conexión';
-        document.getElementById('connection-submit-text').textContent = 'Actualizar Conexión';
-        
-        // Fill form with connection data
-        document.getElementById('connection-name').value = connection.name;
-        document.getElementById('connection-description').value = connection.description || '';
-        document.getElementById('connection-type').value = connection.type;
-        document.getElementById('connection-host').value = connection.host;
-        document.getElementById('connection-port').value = connection.port || '';
-        document.getElementById('connection-endpoint').value = connection.endpoint || '';
-        document.getElementById('auth-type').value = connection.auth_type;
-        
-        // Trigger change events to show appropriate fields
-        handleConnectionTypeChange();
-        handleAuthTypeChange();
-        
-        // Fill auth config if available
-        if (connection.auth_config) {
-            fillAuthFields(connection.auth_config);
-        }
-        
+        // Show the form view first to ensure elements exist
         showView('connectionForm');
+        
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+            try {
+                const titleElement = document.getElementById('connection-form-title');
+                const submitTextElement = document.getElementById('connection-submit-text');
+                
+                if (titleElement) titleElement.textContent = '🔌 Editar Conexión';
+                if (submitTextElement) submitTextElement.textContent = '💾 Actualizar Conexión';
+                
+                // Fill form with connection data
+                const nameField = document.getElementById('connection-name');
+                const descField = document.getElementById('connection-description');
+                const typeField = document.getElementById('connection-type');
+                const hostField = document.getElementById('connection-host');
+                const portField = document.getElementById('connection-port');
+                const endpointField = document.getElementById('connection-endpoint');
+                const authTypeField = document.getElementById('auth-type');
+                
+                if (nameField) nameField.value = connection.name;
+                if (descField) descField.value = connection.description || '';
+                if (typeField) typeField.value = connection.type;
+                if (hostField) hostField.value = connection.host;
+                if (portField) portField.value = connection.port || '';
+                if (endpointField) endpointField.value = connection.endpoint || '';
+                if (authTypeField) authTypeField.value = connection.auth_type;
+                
+                // Fill advanced fields if available
+                if (connection.timeout) {
+                    const timeoutField = document.getElementById('connection-timeout');
+                    if (timeoutField) timeoutField.value = connection.timeout;
+                }
+                if (connection.retries) {
+                    const retriesField = document.getElementById('connection-retries');
+                    if (retriesField) retriesField.value = connection.retries;
+                }
+                if (connection.additional_headers) {
+                    const headersField = document.getElementById('connection-headers');
+                    if (headersField) headersField.value = JSON.stringify(connection.additional_headers, null, 2);
+                }
+                
+                // Trigger change events to show appropriate fields
+                handleConnectionTypeChange();
+                handleAuthTypeChange();
+                
+                // Fill auth config if available
+                if (connection.auth_config) {
+                    fillAuthFields(connection.auth_config);
+                }
+                
+                // Update preview and test button
+                updateConfigPreview();
+                updateTestButtonState();
+                
+            } catch (domError) {
+                console.error('Error filling form fields:', domError);
+                showNotification('Error llenando formulario: ' + domError.message, 'error');
+            }
+        }, 100);
+        
         
     } catch (error) {
         showNotification('Error cargando conexión: ' + error.message, 'error');
@@ -1869,55 +1955,21 @@ function handleAuthTypeChange() {
     const authType = document.getElementById('auth-type').value;
     showAuthFields(authType);
     updateTestButtonState();
+    updateConfigPreview();
 }
 
 function showAuthFields(authType) {
-    const container = document.getElementById('auth-fields');
-    container.innerHTML = '';
-    
-    if (authType === 'USER_PASS') {
-        container.innerHTML = `
-            <div class="auth-field">
-                <label for="auth-username">Usuario *</label>
-                <input type="text" id="auth-username" name="username" required>
-            </div>
-            <div class="auth-field">
-                <label for="auth-password">Contraseña *</label>
-                <input type="password" id="auth-password" name="password" required>
-            </div>
-        `;
-    } else if (authType === 'TOKEN') {
-        container.innerHTML = `
-            <div class="auth-field">
-                <label for="auth-token">Token *</label>
-                <input type="text" id="auth-token" name="token" required>
-            </div>
-            <div class="auth-field">
-                <label for="auth-token-type">Tipo de Token</label>
-                <select id="auth-token-type" name="token_type">
-                    <option value="Bearer">Bearer</option>
-                    <option value="Token">Token</option>
-                </select>
-            </div>
-        `;
-    } else if (authType === 'API_KEY') {
-        container.innerHTML = `
-            <div class="auth-field">
-                <label for="auth-key">API Key *</label>
-                <input type="text" id="auth-key" name="key" required>
-            </div>
-            <div class="auth-field">
-                <label for="auth-location">Ubicación</label>
-                <select id="auth-location" name="location">
-                    <option value="header">Header</option>
-                    <option value="query">Query Parameter</option>
-                </select>
-            </div>
-            <div class="auth-field">
-                <label for="auth-param-name">Nombre del Parámetro</label>
-                <input type="text" id="auth-param-name" name="parameter_name" value="X-API-Key">
-            </div>
-        `;
+    // Hide all auth field sections
+    document.querySelectorAll('.connection-auth-fields').forEach(field => {
+        field.classList.add('hidden');
+    });
+
+    // Show the appropriate section based on auth type
+    if (authType !== 'NONE') {
+        const targetField = document.getElementById(`auth-${authType.toLowerCase().replace('_', '-')}`);
+        if (targetField) {
+            targetField.classList.remove('hidden');
+        }
     }
 }
 
@@ -1981,12 +2033,29 @@ function showAdvancedFields(type) {
 }
 
 function clearAuthFields() {
-    document.getElementById('auth-fields').innerHTML = '';
+    // Clear all auth field sections in the new structure
+    document.querySelectorAll('.connection-auth-fields').forEach(field => {
+        field.classList.add('hidden');
+        // Clear input values within each section
+        field.querySelectorAll('input, select, textarea').forEach(input => {
+            input.value = '';
+        });
+    });
 }
 
 function clearAdvancedFields() {
-    document.getElementById('advanced-fields').innerHTML = '';
-    document.getElementById('advanced-config').style.display = 'none';
+    const advancedConfig = document.getElementById('advanced-config');
+    if (advancedConfig) {
+        advancedConfig.classList.add('hidden');
+        // Clear input values within advanced section
+        advancedConfig.querySelectorAll('input, select, textarea').forEach(input => {
+            if (input.type === 'checkbox') {
+                input.checked = false;
+            } else {
+                input.value = '';
+            }
+        });
+    }
 }
 
 function fillAuthFields(authConfig) {
@@ -1994,23 +2063,18 @@ function fillAuthFields(authConfig) {
     const authType = document.getElementById('auth-type').value;
     
     if (authType === 'USER_PASS' && authConfig.username) {
-        document.getElementById('auth-username').value = authConfig.username;
-        if (authConfig.password) {
-            document.getElementById('auth-password').value = authConfig.password;
-        }
+        const usernameField = document.getElementById('auth-username');
+        const passwordField = document.getElementById('auth-password');
+        if (usernameField) usernameField.value = authConfig.username;
+        if (passwordField && authConfig.password) passwordField.value = authConfig.password;
     } else if (authType === 'TOKEN' && authConfig.token) {
-        document.getElementById('auth-token').value = authConfig.token;
-        if (authConfig.token_type) {
-            document.getElementById('auth-token-type').value = authConfig.token_type;
-        }
+        const tokenField = document.getElementById('auth-token-value');
+        if (tokenField) tokenField.value = authConfig.token;
     } else if (authType === 'API_KEY' && authConfig.key) {
-        document.getElementById('auth-key').value = authConfig.key;
-        if (authConfig.location) {
-            document.getElementById('auth-location').value = authConfig.location;
-        }
-        if (authConfig.parameter_name) {
-            document.getElementById('auth-param-name').value = authConfig.parameter_name;
-        }
+        const headerField = document.getElementById('api-key-header');
+        const keyField = document.getElementById('api-key-value');
+        if (headerField && authConfig.header_name) headerField.value = authConfig.header_name;
+        if (keyField) keyField.value = authConfig.key;
     }
 }
 
@@ -2022,6 +2086,63 @@ function updateTestButtonState() {
     const authType = document.getElementById('auth-type').value;
     
     testBtn.disabled = !(name && type && host && authType);
+}
+
+function updateConfigPreview() {
+    const configPreview = document.getElementById('config-preview');
+    if (!configPreview) return;
+    
+    const config = {
+        name: document.getElementById('connection-name').value || "",
+        type: document.getElementById('connection-type').value || "",
+        host: document.getElementById('connection-host').value || "",
+        port: document.getElementById('connection-port').value || null,
+        endpoint: document.getElementById('connection-endpoint').value || "",
+        auth_type: document.getElementById('auth-type').value || "NONE",
+        timeout: document.getElementById('connection-timeout').value || 30,
+        retries: document.getElementById('connection-retries').value || 3
+    };
+    
+    // Add auth config based on type
+    const authType = config.auth_type;
+    if (authType === 'USER_PASS') {
+        const username = document.getElementById('auth-username');
+        const password = document.getElementById('auth-password');
+        if (username && password) {
+            config.auth_config = {
+                username: username.value || "",
+                password: password.value ? "••••••••" : ""
+            };
+        }
+    } else if (authType === 'TOKEN') {
+        const token = document.getElementById('auth-token-value');
+        if (token) {
+            config.auth_config = {
+                token: token.value ? "••••••••" : ""
+            };
+        }
+    } else if (authType === 'API_KEY') {
+        const header = document.getElementById('api-key-header');
+        const key = document.getElementById('api-key-value');
+        if (header && key) {
+            config.auth_config = {
+                header_name: header.value || "X-API-Key",
+                api_key: key.value ? "••••••••" : ""
+            };
+        }
+    }
+    
+    // Add additional headers if present
+    const additionalHeaders = document.getElementById('connection-headers');
+    if (additionalHeaders && additionalHeaders.value.trim()) {
+        try {
+            config.additional_headers = JSON.parse(additionalHeaders.value);
+        } catch (e) {
+            config.additional_headers = "Invalid JSON";
+        }
+    }
+    
+    configPreview.textContent = JSON.stringify(config, null, 2);
 }
 
 async function handleConnectionSubmit() {

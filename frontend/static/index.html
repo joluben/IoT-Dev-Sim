@@ -277,86 +277,198 @@
 
         <!-- Vista: Crear/Editar Conexión -->
         <div id="connection-form-view" class="view">
-            <div class="view-header">
-                <h2 id="connection-form-title">Nueva Conexión</h2>
-                <button id="btn-back-to-connections" class="btn btn-secondary">Volver</button>
+            <!-- Header compacto -->
+            <section class="connection-header-section">
+                <div class="connection-header-content">
+                    <h1 class="connection-form-title" id="connection-form-title">
+                        🔌 Nueva Conexión
+                    </h1>
+                    <button id="btn-back-to-connections" class="btn btn-secondary">
+                        ← Volver
+                    </button>
+                </div>
+            </section>
+
+            <!-- Formulario principal -->
+            <div class="connection-form-container">
+                <form id="connection-form" class="connection-form-grid">
+                    <!-- Información básica -->
+                    <section class="connection-form-section">
+                        <h3 class="connection-section-title">
+                            📝 Información Básica
+                        </h3>
+                        <div class="connection-fields-grid">
+                            <div class="form-group">
+                                <label for="connection-name">
+                                    Nombre <span class="required">*</span>
+                                </label>
+                                <input type="text" id="connection-name" name="name" placeholder="Mi conexión MQTT" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="connection-type">
+                                    Tipo de Conexión <span class="required">*</span>
+                                </label>
+                                <select id="connection-type" name="type" required>
+                                    <option value="">Seleccionar tipo...</option>
+                                    <option value="MQTT">📄 MQTT (Mosquitto)</option>
+                                    <option value="HTTPS">🌐 HTTPS REST API</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="connection-description">Descripción</label>
+                                <textarea id="connection-description" name="description" rows="2" placeholder="Descripción opcional de la conexión"></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Configuración del servidor -->
+                    <section class="connection-form-section">
+                        <h3 class="connection-section-title">
+                            🌐 Configuración de Servidor
+                        </h3>
+                        <div class="connection-fields-grid">
+                            <div class="form-group">
+                                <label for="connection-host">
+                                    Host/Servidor <span class="required">*</span>
+                                </label>
+                                <input type="text" id="connection-host" name="host" placeholder="ejemplo.com" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="connection-port">Puerto</label>
+                                <input type="number" id="connection-port" name="port" placeholder="1883">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="connection-endpoint">Endpoint/Topic</label>
+                                <input type="text" id="connection-endpoint" name="endpoint" placeholder="/api/data o devices/topic">
+                                <small class="form-help">
+                                    Para HTTPS: ruta del endpoint. Para MQTT: topic de destino
+                                </small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Autenticación -->
+                    <section class="connection-form-section">
+                        <h3 class="connection-section-title">
+                            🔐 Autenticación
+                        </h3>
+                        <div class="connection-fields-grid single-column">
+                            <div class="form-group">
+                                <label for="auth-type">
+                                    Tipo de Autenticación <span class="required">*</span>
+                                </label>
+                                <select id="auth-type" name="auth_type" required>
+                                    <option value="NONE">🔓 Sin Autenticación</option>
+                                    <option value="USER_PASS">👤 Usuario y Contraseña</option>
+                                    <option value="TOKEN">🎫 Token Bearer</option>
+                                    <option value="API_KEY">🔑 API Key</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Campos dinámicos de autenticación -->
+                        <div class="connection-auth-fields hidden" id="auth-user-pass">
+                            <div class="connection-fields-grid">
+                                <div class="form-group">
+                                    <label for="auth-username">Usuario</label>
+                                    <input type="text" id="auth-username" name="username" placeholder="nombre_usuario">
+                                </div>
+                                <div class="form-group">
+                                    <label for="auth-password">Contraseña</label>
+                                    <input type="password" id="auth-password" name="password" placeholder="••••••••">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="connection-auth-fields hidden" id="auth-token">
+                            <div class="form-group">
+                                <label for="auth-token-value">Token Bearer</label>
+                                <input type="password" id="auth-token-value" name="token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                                <small class="form-help">
+                                    Token que se enviará en el header Authorization: Bearer
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="connection-auth-fields hidden" id="auth-api-key">
+                            <div class="connection-fields-grid">
+                                <div class="form-group">
+                                    <label for="api-key-header">Nombre del Header</label>
+                                    <input type="text" id="api-key-header" name="api_key_header" placeholder="X-API-Key" value="X-API-Key">
+                                </div>
+                                <div class="form-group">
+                                    <label for="api-key-value">API Key</label>
+                                    <input type="password" id="api-key-value" name="api_key" placeholder="tu_api_key_aqui">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuración avanzada -->
+                        <button type="button" class="connection-advanced-toggle" id="toggle-advanced">
+                            ⚙️ Configuración avanzada
+                            <span class="toggle-icon">▼</span>
+                        </button>
+
+                        <div class="connection-advanced-content hidden" id="advanced-config">
+                            <div class="connection-fields-grid">
+                                <div class="form-group">
+                                    <label for="connection-timeout">Timeout (segundos)</label>
+                                    <input type="number" id="connection-timeout" name="timeout" placeholder="30" value="30">
+                                </div>
+                                <div class="form-group">
+                                    <label for="connection-retries">Reintentos</label>
+                                    <input type="number" id="connection-retries" name="retries" placeholder="3" value="3">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="connection-headers">Headers adicionales</label>
+                                    <textarea id="connection-headers" name="additional_headers" rows="2" placeholder='{"Content-Type": "application/json"}'></textarea>
+                                    <small class="form-help">
+                                        JSON con headers adicionales (opcional)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Vista previa de configuración -->
+                    <section class="connection-form-section">
+                        <h3 class="connection-section-title">
+                            👁️ Vista Previa
+                        </h3>
+                        <div class="connection-config-preview">
+                            <div class="connection-config-preview-title">Configuración generada:</div>
+                            <div class="connection-config-preview-content" id="config-preview">
+{
+  "name": "",
+  "type": "",
+  "host": "",
+  "port": null,
+  "endpoint": "",
+  "auth_type": "NONE",
+  "timeout": 30,
+  "retries": 3
+}
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Estado de la prueba de conexión -->
+                    <div id="connection-test-result"></div>
+                </form>
             </div>
-            
-            <form id="connection-form" class="form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="connection-name">Nombre *</label>
-                        <input type="text" id="connection-name" name="name" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="connection-type">Tipo de Conexión *</label>
-                        <select class="filter-select" id="connection-type" name="type" required>
-                            <option value="">Seleccionar tipo...</option>
-                            <option value="MQTT">🔄 MQTT (Mosquitto)</option>
-                            <option value="HTTPS">🌐 HTTPS REST API</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="connection-description">Descripción</label>
-                    <textarea id="connection-description" name="description" rows="2"></textarea>
-                </div>
-                
-                <div class="form-section">
-                    <h3>🌐 Configuración de Servidor</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="connection-host">Host/Servidor *</label>
-                            <input type="text" id="connection-host" name="host" placeholder="ejemplo.com" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="connection-port">Puerto</label>
-                            <input type="number" id="connection-port" name="port" placeholder="1883">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="connection-endpoint">Endpoint/Topic</label>
-                        <input type="text" id="connection-endpoint" name="endpoint" placeholder="/api/data o devices/topic">
-                        <small class="form-help">Para HTTPS: ruta del endpoint. Para MQTT: topic de destino</small>
-                    </div>
-                </div>
-                
-                <div class="form-section">
-                    <h3>🔐 Autenticación</h3>
-                    <div class="form-group">
-                        <label for="auth-type">Tipo de Autenticación *</label>
-                        <select class="filter-select" id="auth-type" name="auth_type" required>
-                            <option value="NONE">🔓 Sin Autenticación</option>
-                            <option value="USER_PASS">👤 Usuario y Contraseña</option>
-                            <option value="TOKEN">🎫 Token Bearer</option>
-                            <option value="API_KEY">🔑 API Key</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Campos de autenticación dinámicos -->
-                    <div id="auth-fields"></div>
-                </div>
-                
-                <!-- Configuración avanzada por tipo -->
-                <div id="advanced-config" class="form-section" style="display: none;">
-                    <h3>⚙️ Configuración Avanzada</h3>
-                    <div id="advanced-fields"></div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">
-                        <span id="connection-submit-text">Crear Conexión</span>
-                    </button>
-                    <button type="button" id="btn-test-connection" class="btn btn-info" disabled>
-                        🧪 Probar Conexión
-                    </button>
-                    <button type="button" id="btn-cancel-connection" class="btn btn-secondary">Cancelar</button>
-                </div>
-            </form>
+
+            <!-- Acciones del formulario -->
+            <div class="connection-form-actions">
+                <button type="button" id="btn-cancel-connection" class="btn btn-secondary">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-test-connection" class="btn btn-info" disabled>
+                    🧪 Probar Conexión
+                </button>
+                <button type="submit" form="connection-form" class="btn btn-primary">
+                    <span id="connection-submit-text">💾 Crear Conexión</span>
+                </button>
+            </div>
         </div>
 
         <!-- Vista: Detalle de Conexión -->
