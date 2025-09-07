@@ -423,79 +423,136 @@
 
         <!-- Vista: Detalle de Proyecto -->
         <div id="project-detail-view" class="view">
-            <div class="view-header">
-                <h2 id="project-detail-title">Detalle de Proyecto</h2>
-                <div class="header-actions">
-                    <button id="btn-edit-project" class="btn btn-info">✏️ Editar</button>
-                    <button id="btn-delete-project" class="btn btn-danger">🗑️ Eliminar</button>
-                    <button id="btn-back-from-project-detail" class="btn btn-secondary">Volver</button>
-                </div>
-            </div>
-            
-            <div class="project-info" id="project-info">
-                <!-- Info del proyecto se carga dinámicamente -->
-            </div>
+            <div class="app-container">
+                <!-- Header del proyecto -->
+                <section class="header-section">
+                    <div class="header-content">
+                        <div class="project-title-area">
+                            <h1 class="project-title" id="project-detail-title">Detalle de Proyecto</h1>
+                            <div class="project-metadata">
+                                <div class="project-status active" id="project-status-badge">Activo</div>
+                                <div class="project-stats" id="project-stats">
+                                    <div class="stat-item">
+                                        <span>📱 Dispositivos:</span>
+                                        <span class="stat-value" id="project-devices-count">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>📡 Transmisiones:</span>
+                                        <span class="stat-value" id="project-transmissions-count">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span>✅ Éxito:</span>
+                                        <span class="stat-value" id="project-success-rate">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="header-actions">
+                            <button id="btn-edit-project" class="btn btn-info">
+                                ✏️ Editar
+                            </button>
+                            <button id="btn-delete-project" class="btn btn-danger">
+                                🗑️ Eliminar
+                            </button>
+                            <button id="btn-back-from-project-detail" class="btn btn-secondary">
+                                ← Volver
+                            </button>
+                        </div>
+                    </div>
+                </section>
 
-            <!-- Control de Transmisiones Masivas -->
-            <div class="project-transmission-control">
-                <h3>📡 Control de Transmisiones</h3>
-                
-                <div class="transmission-status">
-                    <div class="status-indicator-container">
-                        <div id="project-transmission-indicator" class="transmission-indicator state-inactive"></div>
-                        <span id="project-transmission-text" class="state-text">Inactivo</span>
+                <!-- Grid principal -->
+                <div class="main-grid">
+                    <!-- Panel de información del proyecto -->
+                    <div class="info-panel">
+                        <h3 class="panel-title">
+                            📋 Información del Proyecto
+                        </h3>
+                        <div class="info-grid" id="project-info">
+                            <!-- Info del proyecto se carga dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Control de transmisiones -->
+                    <div class="transmission-control">
+                        <h3 class="panel-title">
+                            📡 Control de Transmisiones
+                        </h3>
+                        
+                        <div class="transmission-status-compact">
+                            <div class="status-indicator-container">
+                                <div id="project-transmission-indicator" class="transmission-indicator state-inactive"></div>
+                                <span id="project-transmission-text" class="state-text">Transmisiones inactivas</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Conexión para Transmisión</label>
+                            <select id="project-connection-selector" name="connection_id">
+                                <option value="">Usar conexión de cada dispositivo</option>
+                            </select>
+                        </div>
+
+                        <div class="transmission-actions">
+                            <button id="btn-start-project-transmission" class="btn btn-success">
+                                🚀 Iniciar Transmisiones
+                            </button>
+                            <button id="btn-pause-project-transmission" class="btn btn-warning" style="display: none;">
+                                ⏸️ Pausar
+                            </button>
+                            <button id="btn-resume-project-transmission" class="btn btn-info" style="display: none;">
+                                ▶️ Reanudar
+                            </button>
+                            <button id="btn-stop-project-transmission" class="btn btn-danger">
+                                ⏹️ Parar
+                            </button>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="transmission-config">
-                    <div class="form-group">
-                        <label for="project-connection-selector">Conexión para Transmisión</label>
-                        <select class="filter-select" id="project-connection-selector" name="connection_id">
-                            <option value="">Usar conexión de cada dispositivo</option>
-                        </select>
+
+                <!-- Sección de dispositivos -->
+                <section class="devices-section">
+                    <div class="devices-header">
+                        <h3 class="panel-title">
+                            📱 Dispositivos del Proyecto
+                        </h3>
+                        <button id="btn-add-devices-to-project" class="btn btn-primary btn-medium">
+                            ➕ Agregar Dispositivos
+                        </button>
                     </div>
                     
-                    <div class="transmission-actions">
-                        <button id="btn-start-project-transmission" class="btn btn-success">🚀 Iniciar Transmisiones</button>
-                        <button id="btn-pause-project-transmission" class="btn btn-warning">⏸️ Pausar</button>
-                        <button id="btn-resume-project-transmission" class="btn btn-info">▶️ Reanudar</button>
-                        <button id="btn-stop-project-transmission" class="btn btn-danger">⏹️ Parar</button>
+                    <div class="devices-grid" id="project-devices-list">
+                        <div class="loading">Cargando dispositivos...</div>
                     </div>
-                </div>
-            </div>
+                </section>
 
-            <!-- Gestión de Dispositivos del Proyecto -->
-            <div class="project-devices">
-                <div class="devices-header">
-                    <h3>📱 Dispositivos del Proyecto</h3>
-                    <button id="btn-add-devices-to-project" class="btn btn-primary btn-medium">➕ Agregar Dispositivos</button>
-                </div>
-                
-                <div class="project-devices-list" id="project-devices-list">
-                    <div class="loading">Cargando dispositivos...</div>
-                </div>
-            </div>
-
-            <!-- Historial de Transmisiones del Proyecto -->
-            <div class="project-transmission-history">
-                <div class="history-header">
-                    <h3>📋 Historial de Transmisiones</h3>
-                    <div class="history-controls">
-                        <select id="project-history-filter-device" class="filter-select">
-                            <option value="">Todos los dispositivos</option>
-                        </select>
-                        <select id="project-history-filter-status" class="filter-select">
-                            <option value="">Todos los estados</option>
-                            <option value="SUCCESS">Exitosas</option>
-                            <option value="FAILED">Fallidas</option>
-                        </select>
-                        <button class="btn btn-sm btn-secondary" onclick="exportProjectTransmissionHistory()">📥 Exportar</button>
-                        <button class="btn btn-sm btn-primary" onclick="refreshProjectTransmissionHistory()">🔄</button>
+                <!-- Historial de transmisiones -->
+                <section class="history-section">
+                    <div class="history-header">
+                        <h3 class="panel-title">
+                            📋 Historial de Transmisiones
+                        </h3>
+                        <div class="history-controls">
+                            <select id="project-history-filter-device" class="filter-select">
+                                <option value="">Todos los dispositivos</option>
+                            </select>
+                            <select id="project-history-filter-status" class="filter-select">
+                                <option value="">Todos los estados</option>
+                                <option value="SUCCESS">Exitosas</option>
+                                <option value="FAILED">Fallidas</option>
+                            </select>
+                            <button class="btn btn-sm btn-secondary" onclick="exportProjectTransmissionHistory()">
+                                📥 Exportar
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="refreshProjectTransmissionHistory()">
+                                🔄 Actualizar
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div id="project-transmission-history-list" class="history-list">
-                    <div class="loading">Sin transmisiones</div>
-                </div>
+                    <div id="project-transmission-history-list" class="history-list">
+                        <div class="empty-state">Sin transmisiones registradas</div>
+                    </div>
+                </section>
             </div>
         </div>
 

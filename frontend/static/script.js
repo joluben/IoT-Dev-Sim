@@ -581,32 +581,47 @@ async function showProjectDetail(projectId) {
             return;
         }
         
-        // Update project info
+        // Update project header
         document.getElementById('project-detail-title').textContent = currentProject.name;
+        
+        // Update project status badge
+        const statusBadge = document.getElementById('project-status-badge');
+        if (statusBadge) {
+            const statusClass = currentProject.transmission_status.toLowerCase();
+            statusBadge.className = `project-status ${statusClass}`;
+            statusBadge.textContent = getTransmissionStatusText(currentProject.transmission_status);
+        }
+        
+        // Update project statistics
+        document.getElementById('project-devices-count').textContent = currentProject.devices_count || 0;
+        document.getElementById('project-transmissions-count').textContent = currentProject.transmissions_count || 0;
+        document.getElementById('project-success-rate').textContent = currentProject.success_rate || '0%';
+        
+        // Update project info panel with new structure
         document.getElementById('project-info').innerHTML = `
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Nombre:</label>
-                    <span>${currentProject.name}</span>
-                </div>
-                <div class="info-item">
-                    <label>Descripción:</label>
-                    <span>${currentProject.description || 'Sin descripción'}</span>
-                </div>
-                <div class="info-item">
-                    <label>Estado:</label>
-                    <span class="status ${currentProject.transmission_status.toLowerCase()}">
-                        ${getTransmissionStatusText(currentProject.transmission_status)}
-                    </span>
-                </div>
-                <div class="info-item">
-                    <label>Dispositivos:</label>
-                    <span>${currentProject.devices_count}</span>
-                </div>
-                <div class="info-item">
-                    <label>Creado:</label>
-                    <span>${formatDate(currentProject.created_at)}</span>
-                </div>
+            <div class="info-item">
+                <span class="info-label">ID</span>
+                <span class="info-value">#${currentProject.id}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Nombre</span>
+                <span class="info-value">${currentProject.name}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Descripción</span>
+                <span class="info-value">${currentProject.description || 'Sin descripción'}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Estado</span>
+                <span class="info-value">${getTransmissionStatusText(currentProject.transmission_status)}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Creado</span>
+                <span class="info-value">${formatDate(currentProject.created_at)}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Última transmisión</span>
+                <span class="info-value">${currentProject.last_transmission ? formatDate(currentProject.last_transmission) : 'Nunca'}</span>
             </div>
         `;
         
@@ -703,18 +718,18 @@ async function loadProjectDevices(projectId) {
         }
         
         devicesList.innerHTML = devices.map(device => `
-            <div class="device-item">
-                <div class="device-info">
-                    <h4>${device.name}</h4>
-                    <p class="device-reference">Ref: ${device.reference}</p>
-                    <p class="device-type">Tipo: ${device.device_type}</p>
-                    <p class="device-status">
-                        Estado: ${device.transmission_enabled ? 'Habilitado' : 'Deshabilitado'}
-                    </p>
+            <div class="device-card" onclick="viewDevice(${device.id})">
+                <div class="device-card-header">
+                    <div class="device-name">${device.name}</div>
+                    <div class="device-reference">${device.reference}</div>
                 </div>
-                <div class="device-actions">
-                    <button class="btn btn-sm btn-info" onclick="showDeviceDetail(${device.id})">Detalle</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Eliminar</button>
+                <div class="device-status">
+                    <div class="status-indicator ${device.csv_data ? 'has-data' : 'no-data'}"></div>
+                    <span>${device.csv_data ? 'Datos cargados' : 'Sin datos CSV'}</span>
+                </div>
+                <div class="device-actions" onclick="event.stopPropagation()">
+                    <button class="btn btn-sm btn-info" onclick="viewDevice(${device.id})">Ver</button>
+                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Quitar</button>
                 </div>
             </div>
         `).join('');
