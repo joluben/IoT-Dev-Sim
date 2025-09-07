@@ -548,8 +548,8 @@ async function loadProjects() {
                         <span class="device-count">📱 ${project.devices_count} dispositivos</span>
                 </div>
                 <div class="project-actions">
-                    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ Editar</button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(${project.id})">🗑️ Eliminar</button>
+                    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ ${window.i18n.t('common.actions.edit')}</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(${project.id})">🗑️ ${window.i18n.t('common.actions.delete')}</button>
                 </div>
             </div>
         `).join('');
@@ -728,8 +728,8 @@ async function loadProjectDevices(projectId) {
                     <span>${device.csv_data ? 'Datos cargados' : 'Sin datos CSV'}</span>
                 </div>
                 <div class="device-actions" onclick="event.stopPropagation()">
-                    <button class="btn btn-sm btn-info" onclick="viewDevice(${device.id})">Ver</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Quitar</button>
+                    <button class="btn btn-sm btn-info" onclick="viewDevice(${device.id})">${window.i18n.t('common.actions.view_details')}</button>
+                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">${window.i18n.t('projects.actions.remove_devices')}</button>
                 </div>
             </div>
         `).join('');
@@ -1211,7 +1211,7 @@ function formatDate(dateString) {
 async function loadDevices() {
     try {
         elements.devicesLoading.style.display = 'block';
-        const devices = await API.getDevices();
+        devices = await API.getDevices(); // Store in global variable
         renderDevices(devices);
     } catch (error) {
         showNotification('Error al cargar dispositivos: ' + error.message, 'error');
@@ -1220,13 +1220,16 @@ async function loadDevices() {
     }
 }
 
-function renderDevices(devices) {
-    if (devices.length === 0) {
+function renderDevices(devicesArray) {
+    // Also update global devices array when rendering
+    devices = devicesArray;
+    
+    if (devicesArray.length === 0) {
         elements.devicesGrid.innerHTML = '<div class="loading">No hay dispositivos creados</div>';
         return;
     }
 
-    elements.devicesGrid.innerHTML = devices.map(device => `
+    elements.devicesGrid.innerHTML = devicesArray.map(device => `
         <div class="device-card">
             <h3>${device.name}</h3>
             <div class="device-reference">${device.reference}</div>
@@ -1237,13 +1240,13 @@ function renderDevices(devices) {
             </div>
             <div class="device-actions">
                 <button class="btn btn-primary btn-small" onclick="viewDevice(${device.id})">
-                    Detalle
+                    ${window.i18n.t('common.actions.view_details')}
                 </button>
                 <button class="btn btn-secondary btn-small" onclick="showDuplicateModal(${device.id})">
-                    Duplicar
+                    ${window.i18n.t('common.actions.duplicate')}
                 </button>
                 <button class="btn btn-danger btn-small" onclick="showDeleteModal(${device.id})">
-                    Eliminar
+                    ${window.i18n.t('common.actions.delete')}
                 </button>
             </div>
         </div>
@@ -1766,10 +1769,10 @@ function createConnectionCard(connection) {
                 ${connection.description ? `<div><strong>Descripción:</strong> ${connection.description}</div>` : ''}
             </div>
             <div class="connection-actions">
-                <button class="btn btn-info btn-sm" onclick="viewConnection(${connection.id})">Ver</button>
-                <button class="btn btn-warning btn-sm" onclick="editConnection(${connection.id})">Editar</button>
-                <button class="btn btn-success btn-sm" onclick="testConnection(${connection.id})">Probar</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteConnection(${connection.id})">Eliminar</button>
+                <button class="btn btn-info btn-sm" onclick="viewConnection(${connection.id})">${window.i18n.t('common.actions.view_details')}</button>
+                <button class="btn btn-warning btn-sm" onclick="editConnection(${connection.id})">${window.i18n.t('common.actions.edit')}</button>
+                <button class="btn btn-success btn-sm" onclick="testConnection(${connection.id})">${window.i18n.t('connections.actions.test_connection')}</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteConnection(${connection.id})">${window.i18n.t('common.actions.delete')}</button>
             </div>
         </div>
     `;
@@ -2080,10 +2083,19 @@ function fillAuthFields(authConfig) {
 
 function updateTestButtonState() {
     const testBtn = document.getElementById('btn-test-connection');
-    const name = document.getElementById('connection-name').value;
-    const type = document.getElementById('connection-type').value;
-    const host = document.getElementById('connection-host').value;
-    const authType = document.getElementById('auth-type').value;
+    if (!testBtn) return;
+    
+    const nameField = document.getElementById('connection-name');
+    const typeField = document.getElementById('connection-type');
+    const hostField = document.getElementById('connection-host');
+    const authTypeField = document.getElementById('auth-type');
+    
+    if (!nameField || !typeField || !hostField || !authTypeField) return;
+    
+    const name = nameField.value;
+    const type = typeField.value;
+    const host = hostField.value;
+    const authType = authTypeField.value;
     
     testBtn.disabled = !(name && type && host && authType);
 }
@@ -2092,15 +2104,26 @@ function updateConfigPreview() {
     const configPreview = document.getElementById('config-preview');
     if (!configPreview) return;
     
+    const nameField = document.getElementById('connection-name');
+    const typeField = document.getElementById('connection-type');
+    const hostField = document.getElementById('connection-host');
+    const portField = document.getElementById('connection-port');
+    const endpointField = document.getElementById('connection-endpoint');
+    const authTypeField = document.getElementById('auth-type');
+    const timeoutField = document.getElementById('connection-timeout');
+    const retriesField = document.getElementById('connection-retries');
+    
+    if (!nameField || !typeField || !hostField || !authTypeField) return;
+    
     const config = {
-        name: document.getElementById('connection-name').value || "",
-        type: document.getElementById('connection-type').value || "",
-        host: document.getElementById('connection-host').value || "",
-        port: document.getElementById('connection-port').value || null,
-        endpoint: document.getElementById('connection-endpoint').value || "",
-        auth_type: document.getElementById('auth-type').value || "NONE",
-        timeout: document.getElementById('connection-timeout').value || 30,
-        retries: document.getElementById('connection-retries').value || 3
+        name: nameField.value || "",
+        type: typeField.value || "",
+        host: hostField.value || "",
+        port: portField ? portField.value || null : null,
+        endpoint: endpointField ? endpointField.value || "" : "",
+        auth_type: authTypeField.value || "NONE",
+        timeout: timeoutField ? timeoutField.value || 30 : 30,
+        retries: retriesField ? retriesField.value || 3 : 3
     };
     
     // Add auth config based on type
@@ -2977,11 +3000,23 @@ async function showDuplicateModal(deviceId) {
     }
     
     console.log('Found device for duplication:', device.name);
-    document.getElementById('device-name-to-duplicate').textContent = device.name;
-    document.getElementById('duplicate-count').value = 1;
-    updateDuplicatePreview();
     
+    // Show modal first to ensure DOM elements exist
     document.getElementById('duplicate-device-modal').classList.add('active');
+    
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+        const deviceNameElement = document.getElementById('device-name-to-duplicate');
+        const duplicateCountElement = document.getElementById('duplicate-count');
+        
+        if (deviceNameElement) {
+            deviceNameElement.textContent = device.name;
+        }
+        if (duplicateCountElement) {
+            duplicateCountElement.value = 1;
+        }
+        updateDuplicatePreview();
+    }, 50);
 }
 
 function hideDuplicateModal() {
@@ -2990,13 +3025,17 @@ function hideDuplicateModal() {
 }
 
 function updateDuplicatePreview() {
-    const count = parseInt(document.getElementById('duplicate-count').value) || 1;
+    const countElement = document.getElementById('duplicate-count');
+    const previewList = document.getElementById('duplicate-names-preview');
+    
+    if (!countElement || !previewList) return;
+    
+    const count = parseInt(countElement.value) || 1;
     
     // Get device name from the modal display instead of searching the array
     const deviceNameElement = document.getElementById('device-name-to-duplicate');
     const deviceName = deviceNameElement ? deviceNameElement.textContent : 'Dispositivo';
     
-    const previewList = document.getElementById('duplicate-names-preview');
     previewList.innerHTML = '';
     
     for (let i = 1; i <= Math.min(count, 50); i++) {
@@ -3063,9 +3102,17 @@ async function showDeleteModal(deviceId) {
     }
     
     console.log('Found device for deletion:', device.name);
-    document.getElementById('device-name-to-delete').textContent = device.name;
     
+    // Show modal first to ensure DOM elements exist
     document.getElementById('delete-device-modal').classList.add('active');
+    
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+        const deviceNameElement = document.getElementById('device-name-to-delete');
+        if (deviceNameElement) {
+            deviceNameElement.textContent = device.name;
+        }
+    }, 50);
 }
 
 function hideDeleteModal() {

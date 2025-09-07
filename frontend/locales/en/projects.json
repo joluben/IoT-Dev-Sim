@@ -13,9 +13,14 @@
   },
   "actions": {
     "assign_devices": "Assign Devices",
-    "remove_devices": "Remove Devices",
+    "remove_devices": "Remove",
     "bulk_start_transmission": "Bulk Start Transmission",
-    "bulk_stop_transmission": "Bulk Stop Transmission"
+    "bulk_stop_transmission": "Bulk Stop Transmission",
+    "start_transmissions": "Start Transmissions",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "add_devices": "Add Devices"
   },
   "messages": {
     "project_created": "Project created successfully",
@@ -24,6 +29,35 @@
     "devices_assigned": "Devices assigned to project",
     "devices_removed": "Devices removed from project",
     "no_projects": "No projects available",
-    "loading_projects": "Loading projects..."
+    "loading_projects": "Loading projects...",
+    "no_project_devices": "No devices in this project"
+  },
+  "labels": {
+    "devices": "Devices:",
+    "transmissions": "Transmissions:",
+    "success": "Success:",
+    "connection_for_transmission": "Connection for Transmission"
+  },
+  "sections": {
+    "info": "Project Information",
+    "transmission_control": "Transmission Control",
+    "devices": "Project Devices",
+    "transmission_history": "Transmission History"
+  },
+  "history": {
+    "filters": {
+      "all_status": "All statuses",
+      "success": "Successful",
+      "failed": "Failed"
+    },
+    "actions": {
+      "refresh": "Refresh"
+    }
+  },
+  "status": {
+    "inactive": "Transmissions inactive"
+  },
+  "select": {
+    "use_device_connection": "Use each device's connection"
   }
 }

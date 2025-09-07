@@ -26,7 +26,7 @@
             
             <!-- Selector de Idioma -->
             <div class="language-selector">
-                <button id="language-selector" class="language-btn" title="Cambiar idioma">
+                <button id="language-selector" class="language-btn" title="Cambiar idioma" data-i18n-title="common.language.switch_to">
                     🌐 <span data-i18n="common.language.current">Español</span>
                 </button>
             </div>
@@ -50,24 +50,24 @@
         <!-- Vista: Crear Dispositivo -->
         <div id="create-device-view" class="view">
             <div class="view-header">
-                <h2>Crear Dispositivo</h2>
-                <button id="btn-back-to-list" class="btn btn-secondary">Volver</button>
+                <h2 data-i18n="devices.create_device">Crear Dispositivo</h2>
+                <button id="btn-back-to-list" class="btn btn-secondary" data-i18n="common.actions.back">Volver</button>
             </div>
             
             <form id="create-device-form" class="form">
                 <div class="form-group">
-                    <label for="device-name">Nombre *</label>
-                    <input type="text" id="device-name" name="name" required>
+                    <label for="device-name" data-i18n="common.common.name">Nombre *</label>
+                    <input type="text" id="device-name" name="name" required data-i18n-placeholder="devices.device_form.name">
                 </div>
                 
                 <div class="form-group">
-                    <label for="device-description">Descripción</label>
-                    <textarea id="device-description" name="description" rows="3"></textarea>
+                    <label for="device-description" data-i18n="common.common.description">Descripción</label>
+                    <textarea id="device-description" name="description" rows="3" data-i18n-placeholder="devices.device_form.description"></textarea>
                 </div>
                 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Crear Dispositivo</button>
-                    <button type="button" id="btn-cancel-create" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="devices.create_device">Crear Dispositivo</button>
+                    <button type="button" id="btn-cancel-create" class="btn btn-secondary" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </form>
         </div>
@@ -86,7 +86,7 @@
                                 <span id="device-status-text">Estado</span>
                             </div>
                         </div>
-                        <button id="btn-back-from-detail" class="btn btn-secondary">
+                        <button id="btn-back-from-detail" class="btn btn-secondary" data-i18n="common.actions.back">
                             ← Volver
                         </button>
                     </div>
@@ -96,7 +96,7 @@
                 <div class="main-grid">
                     <!-- Panel de información -->
                     <div class="info-panel">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="devices.sections.info">
                             📋 Información del Dispositivo
                         </h3>
                         <div class="info-grid" id="device-info">
@@ -106,14 +106,14 @@
 
                     <!-- Panel de upload -->
                     <div class="upload-panel">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="devices.sections.import_csv">
                             📁 Importar CSV
                         </h3>
                         <div class="upload-area" id="upload-area">
                             <div class="upload-icon">📄</div>
                             <p class="upload-text">
-                                Arrastra tu archivo CSV aquí o 
-                                <span class="upload-link">selecciona un archivo</span>
+                                <span data-i18n="devices.upload.drag">Arrastra tu archivo CSV aquí o</span> 
+                                <span class="upload-link" data-i18n="devices.upload.select_file">selecciona un archivo</span>
                             </p>
                             <input type="file" id="csv-file-input" accept=".csv" hidden>
                         </div>
@@ -123,13 +123,13 @@
                 <!-- Configuración de transmisión -->
                 <section class="transmission-section" id="transmission-section">
                     <div class="transmission-header">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="devices.sections.transmission">
                             📡 Configuración de Transmisión
                         </h3>
                         <div class="transmission-status-compact">
                             <div class="status-indicator-container">
                                 <div id="transmission-state-indicator" class="transmission-indicator state-inactive"></div>
-                                <span id="transmission-state-text" class="state-text">Inactivo</span>
+                                <span id="transmission-state-text" class="state-text" data-i18n="devices.status.inactive">Inactivo</span>
                             </div>
                         </div>
                     </div>
@@ -138,9 +138,9 @@
                     <div class="sensor-controls" id="sensor-controls" style="display: none;">
                         <div class="current-position">
                             <span class="position-info">
-                                Posición actual: <span class="position-value" id="current-row-index">0</span>
+                                <span data-i18n="devices.sensor.current_position">Posición actual:</span> <span class="position-value" id="current-row-index">0</span>
                             </span>
-                            <button id="btn-reset-sensor" class="btn btn-warning btn-sm">
+                            <button id="btn-reset-sensor" class="btn btn-warning btn-sm" data-i18n="devices.sensor.reset_position">
                                 🔄 Reiniciar Posición
                             </button>
                         </div>
@@ -149,7 +149,7 @@
                     <!-- Grid de configuración -->
                     <div class="config-grid">
                         <div class="form-group">
-                            <label>Tipo de Dispositivo</label>
+                            <label data-i18n="devices.device_form.device_type">Tipo de Dispositivo</label>
                             <select id="device-type" name="device_type">
                                 <option value="WebApp">📱 WebApp (Envío completo)</option>
                                 <option value="Sensor">🔬 Sensor (Fila por fila)</option>
@@ -157,44 +157,44 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Frecuencia (segundos)</label>
+                            <label data-i18n="devices.device_form.transmission_frequency">Frecuencia (segundos)</label>
                             <input type="number" id="transmission-frequency" name="transmission_frequency" min="1" value="3600">
                         </div>
 
                         <div class="form-group">
-                            <label>Conexión para Transmisión</label>
+                            <label data-i18n="devices.labels.connection_for_transmission">Conexión para Transmisión</label>
                             <select id="transmission-connection" name="transmission_connection">
-                                <option value="">Seleccionar conexión...</option>
+                                <option value="" data-i18n="devices.select.connection_placeholder">Seleccionar conexión...</option>
                             </select>
                         </div>
 
                         <div class="checkbox-container">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="transmission-enabled" name="transmission_enabled">
-                                <span>Transmisión automática habilitada</span>
+                                <span data-i18n="devices.labels.auto_transmission_enabled">Transmisión automática habilitada</span>
                             </label>
                             <label class="checkbox-label">
                                 <input type="checkbox" id="include-device-id" name="include_device_id_in_payload">
-                                <span>Incluir device_id en payload</span>
+                                <span data-i18n="devices.labels.include_device_id">Incluir device_id en payload</span>
                             </label>
                         </div>
                     </div>
 
                     <!-- Botones de acción -->
                     <div class="action-buttons">
-                        <button id="btn-save-transmission-config" class="btn btn-primary">
+                        <button id="btn-save-transmission-config" class="btn btn-primary" data-i18n="devices.actions.save_config">
                             💾 Guardar Configuración
                         </button>
-                        <button id="btn-transmit-now" class="btn btn-success">
+                        <button id="btn-transmit-now" class="btn btn-success" data-i18n="devices.actions.transmit_now">
                             📤 Transmitir Ahora
                         </button>
-                        <button id="btn-pause-transmission" class="btn btn-warning" style="display: none;">
+                        <button id="btn-pause-transmission" class="btn btn-warning" style="display: none;" data-i18n="devices.actions.pause_transmission">
                             ⏸️ Pausar
                         </button>
-                        <button id="btn-resume-transmission" class="btn btn-info" style="display: none;">
+                        <button id="btn-resume-transmission" class="btn btn-info" style="display: none;" data-i18n="devices.actions.resume_transmission">
                             ▶️ Reanudar
                         </button>
-                        <button id="btn-stop-transmission" class="btn btn-danger" disabled>
+                        <button id="btn-stop-transmission" class="btn btn-danger" disabled data-i18n="devices.actions.stop_transmission">
                             ⏹️ Parar
                         </button>
                     </div>
@@ -203,22 +203,22 @@
                 <!-- Historial de transmisiones -->
                 <section class="history-section">
                     <div class="transmission-header">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="devices.sections.transmission_history">
                             📋 Historial de Transmisiones
                         </h3>
                         <div class="history-controls">
                             <select id="history-filter-status" class="filter-select">
-                                <option value="">Todos los estados</option>
-                                <option value="SUCCESS">Exitosas</option>
-                                <option value="FAILED">Fallidas</option>
+                                <option value="" data-i18n="devices.history.filters.all_status">Todos los estados</option>
+                                <option value="SUCCESS" data-i18n="devices.history.filters.success">Exitosas</option>
+                                <option value="FAILED" data-i18n="devices.history.filters.failed">Fallidas</option>
                             </select>
                             <select id="history-filter-connection" class="filter-select">
-                                <option value="">Todas las conexiones</option>
+                                <option value="" data-i18n="devices.history.filters.all_connections">Todas las conexiones</option>
                             </select>
-                            <button class="btn btn-sm btn-secondary" onclick="exportTransmissionHistory()">
+                            <button class="btn btn-sm btn-secondary" onclick="exportTransmissionHistory()" data-i18n="common.actions.export">
                                 📥 Exportar
                             </button>
-                            <button class="btn btn-sm btn-primary" onclick="refreshTransmissionHistory()">
+                            <button class="btn btn-sm btn-primary" onclick="refreshTransmissionHistory()" data-i18n="devices.history.actions.refresh">
                                 🔄 Actualizar
                             </button>
                         </div>
@@ -227,21 +227,21 @@
                         <div class="empty-state">Sin transmisiones</div>
                     </div>
                     <div class="history-pagination" id="history-pagination" style="display: none;">
-                        <button class="btn btn-sm" onclick="loadHistoryPage('prev')">← Anterior</button>
-                        <span id="history-page-info">Página 1</span>
-                        <button class="btn btn-sm" onclick="loadHistoryPage('next')">Siguiente →</button>
+                        <button class="btn btn-sm" onclick="loadHistoryPage('prev')" data-i18n="common.pagination.prev">← Anterior</button>
+                        <span id="history-page-info" data-i18n="devices.history.page_info">Página 1</span>
+                        <button class="btn btn-sm" onclick="loadHistoryPage('next')" data-i18n="common.pagination.next">Siguiente →</button>
                     </div>
                 </section>
 
                 <!-- Preview mejorado -->
                 <section class="preview-section" id="preview-section" style="display: none;">
-                    <h3 class="panel-title">
+                    <h3 class="panel-title" data-i18n="devices.preview.title">
                         👁️ Previsualización
                     </h3>
                     
                     <div class="preview-tabs">
-                        <button class="preview-tab active" data-tab="csv">Vista CSV</button>
-                        <button class="preview-tab" data-tab="json">Vista JSON</button>
+                        <button class="preview-tab active" data-tab="csv" data-i18n="devices.preview.csv">Vista CSV</button>
+                        <button class="preview-tab" data-tab="json" data-i18n="devices.preview.json">Vista JSON</button>
                     </div>
 
                     <div class="preview-content" id="preview-content">
@@ -253,9 +253,9 @@
                     </div>
 
                     <div class="preview-actions">
-                        <button id="btn-cancel-upload" class="btn btn-secondary">Cancelar</button>
-                        <button id="btn-save-csv" class="btn btn-primary">Guardar Datos</button>
-                        <button id="btn-send-data" class="btn btn-success" style="display: none;">
+                        <button id="btn-cancel-upload" class="btn btn-secondary" data-i18n="common.actions.cancel">Cancelar</button>
+                        <button id="btn-save-csv" class="btn btn-primary" data-i18n="devices.preview.save_data">Guardar Datos</button>
+                        <button id="btn-send-data" class="btn btn-success" style="display: none;" data-i18n="devices.preview.send_to_connection">
                             📤 Enviar a Conexión
                         </button>
                     </div>
@@ -266,12 +266,12 @@
         <!-- Vista: Lista de Conexiones -->
         <div id="connections-list-view" class="view">
             <div class="view-header">
-                <h2>🔗 Conexiones Externas</h2>
-                <button id="btn-new-connection" class="btn btn-primary">Nueva Conexión</button>
+                <h2 data-i18n="connections.title">🔗 Conexiones Externas</h2>
+                <button id="btn-new-connection" class="btn btn-primary" data-i18n="connections.create_connection">Nueva Conexión</button>
             </div>
             
             <div class="connections-grid" id="connections-grid">
-                <div class="loading" id="connections-loading">Cargando conexiones...</div>
+                <div class="loading" id="connections-loading" data-i18n="connections.messages.loading_connections">Cargando conexiones...</div>
             </div>
         </div>
 
@@ -280,10 +280,10 @@
             <!-- Header compacto -->
             <section class="connection-header-section">
                 <div class="connection-header-content">
-                    <h1 class="connection-form-title" id="connection-form-title">
+                    <h1 class="connection-form-title" id="connection-form-title" data-i18n="connections.create_connection">
                         🔌 Nueva Conexión
                     </h1>
-                    <button id="btn-back-to-connections" class="btn btn-secondary">
+                    <button id="btn-back-to-connections" class="btn btn-secondary" data-i18n="common.actions.back">
                         ← Volver
                     </button>
                 </div>
@@ -294,52 +294,52 @@
                 <form id="connection-form" class="connection-form-grid">
                     <!-- Información básica -->
                     <section class="connection-form-section">
-                        <h3 class="connection-section-title">
+                        <h3 class="connection-section-title" data-i18n="connections.sections.basic_info">
                             📝 Información Básica
                         </h3>
                         <div class="connection-fields-grid">
                             <div class="form-group">
-                                <label for="connection-name">
+                                <label for="connection-name" data-i18n="common.common.name">
                                     Nombre <span class="required">*</span>
                                 </label>
-                                <input type="text" id="connection-name" name="name" placeholder="Mi conexión MQTT" required>
+                                <input type="text" id="connection-name" name="name" placeholder="Mi conexión MQTT" required data-i18n-placeholder="connections.connection_form.name">
                             </div>
                             <div class="form-group">
-                                <label for="connection-type">
+                                <label for="connection-type" data-i18n="connections.connection_form.connection_type">
                                     Tipo de Conexión <span class="required">*</span>
                                 </label>
                                 <select id="connection-type" name="type" required>
-                                    <option value="">Seleccionar tipo...</option>
+                                    <option value="" data-i18n="connections.select.type_placeholder">Seleccionar tipo...</option>
                                     <option value="MQTT">📄 MQTT (Mosquitto)</option>
                                     <option value="HTTPS">🌐 HTTPS REST API</option>
                                 </select>
                             </div>
                             <div class="form-group full-width">
-                                <label for="connection-description">Descripción</label>
-                                <textarea id="connection-description" name="description" rows="2" placeholder="Descripción opcional de la conexión"></textarea>
+                                <label for="connection-description" data-i18n="common.common.description">Descripción</label>
+                                <textarea id="connection-description" name="description" rows="2" placeholder="Descripción opcional de la conexión" data-i18n-placeholder="connections.connection_form.description"></textarea>
                             </div>
                         </div>
                     </section>
 
                     <!-- Configuración del servidor -->
                     <section class="connection-form-section">
-                        <h3 class="connection-section-title">
+                        <h3 class="connection-section-title" data-i18n="connections.sections.server_config">
                             🌐 Configuración de Servidor
                         </h3>
                         <div class="connection-fields-grid">
                             <div class="form-group">
-                                <label for="connection-host">
+                                <label for="connection-host" data-i18n="connections.labels.host">
                                     Host/Servidor <span class="required">*</span>
                                 </label>
-                                <input type="text" id="connection-host" name="host" placeholder="ejemplo.com" required>
+                                <input type="text" id="connection-host" name="host" placeholder="ejemplo.com" required data-i18n-placeholder="connections.placeholders.host">
                             </div>
                             <div class="form-group">
-                                <label for="connection-port">Puerto</label>
-                                <input type="number" id="connection-port" name="port" placeholder="1883">
+                                <label for="connection-port" data-i18n="connections.labels.port">Puerto</label>
+                                <input type="number" id="connection-port" name="port" placeholder="1883" data-i18n-placeholder="connections.placeholders.port">
                             </div>
                             <div class="form-group full-width">
-                                <label for="connection-endpoint">Endpoint/Topic</label>
-                                <input type="text" id="connection-endpoint" name="endpoint" placeholder="/api/data o devices/topic">
+                                <label for="connection-endpoint" data-i18n="connections.labels.endpoint">Endpoint/Topic</label>
+                                <input type="text" id="connection-endpoint" name="endpoint" placeholder="/api/data o devices/topic" data-i18n-placeholder="connections.placeholders.endpoint">
                                 <small class="form-help">
                                     Para HTTPS: ruta del endpoint. Para MQTT: topic de destino
                                 </small>
@@ -349,19 +349,19 @@
 
                     <!-- Autenticación -->
                     <section class="connection-form-section">
-                        <h3 class="connection-section-title">
+                        <h3 class="connection-section-title" data-i18n="connections.sections.authentication">
                             🔐 Autenticación
                         </h3>
                         <div class="connection-fields-grid single-column">
                             <div class="form-group">
-                                <label for="auth-type">
+                                <label for="auth-type" data-i18n="connections.connection_form.auth_type">
                                     Tipo de Autenticación <span class="required">*</span>
                                 </label>
                                 <select id="auth-type" name="auth_type" required>
-                                    <option value="NONE">🔓 Sin Autenticación</option>
-                                    <option value="USER_PASS">👤 Usuario y Contraseña</option>
-                                    <option value="TOKEN">🎫 Token Bearer</option>
-                                    <option value="API_KEY">🔑 API Key</option>
+                                    <option value="NONE" data-i18n="connections.auth_types.none">🔓 Sin Autenticación</option>
+                                    <option value="USER_PASS" data-i18n="connections.auth_types.user_pass">👤 Usuario y Contraseña</option>
+                                    <option value="TOKEN" data-i18n="connections.auth_types.token">🎫 Token Bearer</option>
+                                    <option value="API_KEY" data-i18n="connections.auth_types.api_key">🔑 API Key</option>
                                 </select>
                             </div>
                         </div>
@@ -370,20 +370,20 @@
                         <div class="connection-auth-fields hidden" id="auth-user-pass">
                             <div class="connection-fields-grid">
                                 <div class="form-group">
-                                    <label for="auth-username">Usuario</label>
-                                    <input type="text" id="auth-username" name="username" placeholder="nombre_usuario">
+                                    <label for="auth-username" data-i18n="connections.connection_form.username">Usuario</label>
+                                    <input type="text" id="auth-username" name="username" placeholder="nombre_usuario" data-i18n-placeholder="connections.placeholders.username">
                                 </div>
                                 <div class="form-group">
-                                    <label for="auth-password">Contraseña</label>
-                                    <input type="password" id="auth-password" name="password" placeholder="••••••••">
+                                    <label for="auth-password" data-i18n="connections.connection_form.password">Contraseña</label>
+                                    <input type="password" id="auth-password" name="password" placeholder="••••••••" data-i18n-placeholder="connections.placeholders.password">
                                 </div>
                             </div>
                         </div>
 
                         <div class="connection-auth-fields hidden" id="auth-token">
                             <div class="form-group">
-                                <label for="auth-token-value">Token Bearer</label>
-                                <input type="password" id="auth-token-value" name="token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                                <label for="auth-token-value" data-i18n="connections.connection_form.token">Token Bearer</label>
+                                <input type="password" id="auth-token-value" name="token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." data-i18n-placeholder="connections.placeholders.token">
                                 <small class="form-help">
                                     Token que se enviará en el header Authorization: Bearer
                                 </small>
@@ -393,18 +393,18 @@
                         <div class="connection-auth-fields hidden" id="auth-api-key">
                             <div class="connection-fields-grid">
                                 <div class="form-group">
-                                    <label for="api-key-header">Nombre del Header</label>
-                                    <input type="text" id="api-key-header" name="api_key_header" placeholder="X-API-Key" value="X-API-Key">
+                                    <label for="api-key-header" data-i18n="connections.labels.api_key_header">Nombre del Header</label>
+                                    <input type="text" id="api-key-header" name="api_key_header" placeholder="X-API-Key" value="X-API-Key" data-i18n-placeholder="connections.placeholders.api_key_header">
                                 </div>
                                 <div class="form-group">
-                                    <label for="api-key-value">API Key</label>
-                                    <input type="password" id="api-key-value" name="api_key" placeholder="tu_api_key_aqui">
+                                    <label for="api-key-value" data-i18n="connections.connection_form.api_key">API Key</label>
+                                    <input type="password" id="api-key-value" name="api_key" placeholder="tu_api_key_aqui" data-i18n-placeholder="connections.placeholders.api_key">
                                 </div>
                             </div>
                         </div>
 
                         <!-- Configuración avanzada -->
-                        <button type="button" class="connection-advanced-toggle" id="toggle-advanced">
+                        <button type="button" class="connection-advanced-toggle" id="toggle-advanced" data-i18n="connections.sections.advanced">
                             ⚙️ Configuración avanzada
                             <span class="toggle-icon">▼</span>
                         </button>
@@ -412,16 +412,16 @@
                         <div class="connection-advanced-content hidden" id="advanced-config">
                             <div class="connection-fields-grid">
                                 <div class="form-group">
-                                    <label for="connection-timeout">Timeout (segundos)</label>
-                                    <input type="number" id="connection-timeout" name="timeout" placeholder="30" value="30">
+                                    <label for="connection-timeout" data-i18n="connections.labels.timeout">Timeout (segundos)</label>
+                                    <input type="number" id="connection-timeout" name="timeout" placeholder="30" value="30" data-i18n-placeholder="connections.placeholders.timeout">
                                 </div>
                                 <div class="form-group">
-                                    <label for="connection-retries">Reintentos</label>
-                                    <input type="number" id="connection-retries" name="retries" placeholder="3" value="3">
+                                    <label for="connection-retries" data-i18n="connections.labels.retries">Reintentos</label>
+                                    <input type="number" id="connection-retries" name="retries" placeholder="3" value="3" data-i18n-placeholder="connections.placeholders.retries">
                                 </div>
                                 <div class="form-group full-width">
-                                    <label for="connection-headers">Headers adicionales</label>
-                                    <textarea id="connection-headers" name="additional_headers" rows="2" placeholder='{"Content-Type": "application/json"}'></textarea>
+                                    <label for="connection-headers" data-i18n="connections.labels.additional_headers">Headers adicionales</label>
+                                    <textarea id="connection-headers" name="additional_headers" rows="2" placeholder='{"Content-Type": "application/json"}' data-i18n-placeholder="connections.placeholders.additional_headers"></textarea>
                                     <small class="form-help">
                                         JSON con headers adicionales (opcional)
                                     </small>
@@ -432,11 +432,11 @@
 
                     <!-- Vista previa de configuración -->
                     <section class="connection-form-section">
-                        <h3 class="connection-section-title">
+                        <h3 class="connection-section-title" data-i18n="connections.preview.title">
                             👁️ Vista Previa
                         </h3>
                         <div class="connection-config-preview">
-                            <div class="connection-config-preview-title">Configuración generada:</div>
+                            <div class="connection-config-preview-title" data-i18n="connections.preview.generated_config">Configuración generada:</div>
                             <div class="connection-config-preview-content" id="config-preview">
 {
   "name": "",
@@ -459,14 +459,14 @@
 
             <!-- Acciones del formulario -->
             <div class="connection-form-actions">
-                <button type="button" id="btn-cancel-connection" class="btn btn-secondary">
+                <button type="button" id="btn-cancel-connection" class="btn btn-secondary" data-i18n="common.actions.cancel">
                     Cancelar
                 </button>
-                <button type="button" id="btn-test-connection" class="btn btn-info" disabled>
+                <button type="button" id="btn-test-connection" class="btn btn-info" disabled data-i18n="connections.actions.test_connection">
                     🧪 Probar Conexión
                 </button>
                 <button type="submit" form="connection-form" class="btn btn-primary">
-                    <span id="connection-submit-text">💾 Crear Conexión</span>
+                    <span id="connection-submit-text" data-i18n="connections.create_connection">💾 Crear Conexión</span>
                 </button>
             </div>
         </div>
@@ -474,11 +474,11 @@
         <!-- Vista: Detalle de Conexión -->
         <div id="connection-detail-view" class="view">
             <div class="view-header">
-                <h2 id="connection-detail-title">Detalle de Conexión</h2>
+                <h2 id="connection-detail-title" data-i18n="connections.connection_details">Detalle de Conexión</h2>
                 <div class="header-actions">
-                    <button id="btn-edit-connection" class="btn btn-info">✏️ Editar</button>
-                    <button id="btn-test-connection-detail" class="btn btn-success">🧪 Probar</button>
-                    <button id="btn-back-from-connection-detail" class="btn btn-secondary">Volver</button>
+                    <button id="btn-edit-connection" class="btn btn-info" data-i18n="common.actions.edit">✏️ Editar</button>
+                    <button id="btn-test-connection-detail" class="btn btn-success" data-i18n="connections.actions.test_connection">🧪 Probar</button>
+                    <button id="btn-back-from-connection-detail" class="btn btn-secondary" data-i18n="common.actions.back">Volver</button>
                 </div>
             </div>
             
@@ -487,9 +487,9 @@
             </div>
             
             <div class="connection-history">
-                <h3>📊 Historial de Pruebas</h3>
+                <h3 data-i18n="connections.history.title">📊 Historial de Pruebas</h3>
                 <div class="history-list" id="connection-history-list">
-                    <div class="loading">Cargando historial...</div>
+                    <div class="loading" data-i18n="connections.history.loading">Cargando historial...</div>
                 </div>
             </div>
         </div>
@@ -497,38 +497,38 @@
         <!-- Vista: Lista de Proyectos -->
         <div id="projects-list-view" class="view">
             <div class="view-header">
-                <h2>📁 Proyectos</h2>
-                <button id="btn-new-project" class="btn btn-primary">Nuevo Proyecto</button>
+                <h2 data-i18n="projects.title">📁 Proyectos</h2>
+                <button id="btn-new-project" class="btn btn-primary" data-i18n="projects.create_project">Nuevo Proyecto</button>
             </div>
             
             <div class="projects-grid" id="projects-grid">
-                <div class="loading" id="projects-loading">Cargando proyectos...</div>
+                <div class="loading" id="projects-loading" data-i18n="projects.messages.loading_projects">Cargando proyectos...</div>
             </div>
         </div>
 
         <!-- Vista: Crear/Editar Proyecto -->
         <div id="project-form-view" class="view">
             <div class="view-header">
-                <h2 id="project-form-title">Nuevo Proyecto</h2>
-                <button id="btn-back-to-projects" class="btn btn-secondary">Volver</button>
+                <h2 id="project-form-title" data-i18n="projects.create_project">Nuevo Proyecto</h2>
+                <button id="btn-back-to-projects" class="btn btn-secondary" data-i18n="common.actions.back">Volver</button>
             </div>
             
             <form id="project-form" class="form">
                 <div class="form-group">
-                    <label for="project-name">Nombre del Proyecto *</label>
-                    <input type="text" id="project-name" name="name" required>
+                    <label for="project-name" data-i18n="projects.project_form.name">Nombre del Proyecto *</label>
+                    <input type="text" id="project-name" name="name" required data-i18n-placeholder="projects.project_form.name">
                 </div>
                 
                 <div class="form-group">
-                    <label for="project-description">Descripción</label>
-                    <textarea id="project-description" name="description" rows="3"></textarea>
+                    <label for="project-description" data-i18n="common.common.description">Descripción</label>
+                    <textarea id="project-description" name="description" rows="3" data-i18n-placeholder="projects.project_form.description"></textarea>
                 </div>
                 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">
-                        <span id="project-submit-text">Crear Proyecto</span>
+                        <span id="project-submit-text" data-i18n="projects.create_project">Crear Proyecto</span>
                     </button>
-                    <button type="button" id="btn-cancel-project" class="btn btn-secondary">Cancelar</button>
+                    <button type="button" id="btn-cancel-project" class="btn btn-secondary" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </form>
         </div>
@@ -540,33 +540,33 @@
                 <section class="header-section">
                     <div class="header-content">
                         <div class="project-title-area">
-                            <h1 class="project-title" id="project-detail-title">Detalle de Proyecto</h1>
+                            <h1 class="project-title" id="project-detail-title" data-i18n="projects.project_details">Detalle de Proyecto</h1>
                             <div class="project-metadata">
-                                <div class="project-status active" id="project-status-badge">Activo</div>
+                                <div class="project-status active" id="project-status-badge" data-i18n="common.status.active">Activo</div>
                                 <div class="project-stats" id="project-stats">
                                     <div class="stat-item">
-                                        <span>📱 Dispositivos:</span>
+                                        <span data-i18n="projects.labels.devices">📱 Dispositivos:</span>
                                         <span class="stat-value" id="project-devices-count">0</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span>📡 Transmisiones:</span>
+                                        <span data-i18n="projects.labels.transmissions">📡 Transmisiones:</span>
                                         <span class="stat-value" id="project-transmissions-count">0</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span>✅ Éxito:</span>
+                                        <span data-i18n="projects.labels.success">✅ Éxito:</span>
                                         <span class="stat-value" id="project-success-rate">0%</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="header-actions">
-                            <button id="btn-edit-project" class="btn btn-info">
+                            <button id="btn-edit-project" class="btn btn-info" data-i18n="common.actions.edit">
                                 ✏️ Editar
                             </button>
-                            <button id="btn-delete-project" class="btn btn-danger">
+                            <button id="btn-delete-project" class="btn btn-danger" data-i18n="common.actions.delete">
                                 🗑️ Eliminar
                             </button>
-                            <button id="btn-back-from-project-detail" class="btn btn-secondary">
+                            <button id="btn-back-from-project-detail" class="btn btn-secondary" data-i18n="common.actions.back">
                                 ← Volver
                             </button>
                         </div>
@@ -577,7 +577,7 @@
                 <div class="main-grid">
                     <!-- Panel de información del proyecto -->
                     <div class="info-panel">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="projects.sections.info">
                             📋 Información del Proyecto
                         </h3>
                         <div class="info-grid" id="project-info">
@@ -587,35 +587,35 @@
 
                     <!-- Control de transmisiones -->
                     <div class="transmission-control">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="projects.sections.transmission_control">
                             📡 Control de Transmisiones
                         </h3>
                         
                         <div class="transmission-status-compact">
                             <div class="status-indicator-container">
                                 <div id="project-transmission-indicator" class="transmission-indicator state-inactive"></div>
-                                <span id="project-transmission-text" class="state-text">Transmisiones inactivas</span>
+                                <span id="project-transmission-text" class="state-text" data-i18n="projects.status.inactive">Transmisiones inactivas</span>
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label>Conexión para Transmisión</label>
                             <select id="project-connection-selector" name="connection_id">
-                                <option value="">Usar conexión de cada dispositivo</option>
+                                <option value="" data-i18n="projects.select.use_device_connection">Usar conexión de cada dispositivo</option>
                             </select>
                         </div>
 
                         <div class="transmission-actions">
-                            <button id="btn-start-project-transmission" class="btn btn-success">
+                            <button id="btn-start-project-transmission" class="btn btn-success" data-i18n="projects.actions.start_transmissions">
                                 🚀 Iniciar Transmisiones
                             </button>
-                            <button id="btn-pause-project-transmission" class="btn btn-warning" style="display: none;">
+                            <button id="btn-pause-project-transmission" class="btn btn-warning" style="display: none;" data-i18n="projects.actions.pause">
                                 ⏸️ Pausar
                             </button>
-                            <button id="btn-resume-project-transmission" class="btn btn-info" style="display: none;">
+                            <button id="btn-resume-project-transmission" class="btn btn-info" style="display: none;" data-i18n="projects.actions.resume">
                                 ▶️ Reanudar
                             </button>
-                            <button id="btn-stop-project-transmission" class="btn btn-danger">
+                            <button id="btn-stop-project-transmission" class="btn btn-danger" data-i18n="projects.actions.stop">
                                 ⏹️ Parar
                             </button>
                         </div>
@@ -625,10 +625,10 @@
                 <!-- Sección de dispositivos -->
                 <section class="devices-section">
                     <div class="devices-header">
-                        <h3 class="panel-title">
+                        <h3 class="panel-title" data-i18n="projects.sections.devices">
                             📱 Dispositivos del Proyecto
                         </h3>
-                        <button id="btn-add-devices-to-project" class="btn btn-primary btn-medium">
+                        <button id="btn-add-devices-to-project" class="btn btn-primary btn-medium" data-i18n="projects.actions.add_devices">
                             ➕ Agregar Dispositivos
                         </button>
                     </div>
@@ -649,14 +649,14 @@
                                 <option value="">Todos los dispositivos</option>
                             </select>
                             <select id="project-history-filter-status" class="filter-select">
-                                <option value="">Todos los estados</option>
-                                <option value="SUCCESS">Exitosas</option>
-                                <option value="FAILED">Fallidas</option>
+                                <option value="" data-i18n="projects.history.filters.all_status">Todos los estados</option>
+                                <option value="SUCCESS" data-i18n="projects.history.filters.success">Exitosas</option>
+                                <option value="FAILED" data-i18n="projects.history.filters.failed">Fallidas</option>
                             </select>
-                            <button class="btn btn-sm btn-secondary" onclick="exportProjectTransmissionHistory()">
+                            <button class="btn btn-sm btn-secondary" onclick="exportProjectTransmissionHistory()" data-i18n="common.actions.export">
                                 📥 Exportar
                             </button>
-                            <button class="btn btn-sm btn-primary" onclick="refreshProjectTransmissionHistory()">
+                            <button class="btn btn-sm btn-primary" onclick="refreshProjectTransmissionHistory()" data-i18n="projects.history.actions.refresh">
                                 🔄 Actualizar
                             </button>
                         </div>
@@ -672,22 +672,22 @@
         <div id="send-data-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>📤 Enviar Datos del Dispositivo</h3>
+                    <h3 data-i18n="devices.modals.send_data.title">📤 Enviar Datos del Dispositivo</h3>
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Selecciona una conexión para enviar los datos:</p>
+                    <p data-i18n="devices.modals.send_data.select_connection">Selecciona una conexión para enviar los datos:</p>
                     <div class="connections-selector" id="connections-selector">
                         <!-- Lista de conexiones activas -->
                     </div>
                     <div class="data-preview">
-                        <h4>Vista previa de los datos:</h4>
+                        <h4 data-i18n="devices.modals.send_data.preview_title">Vista previa de los datos:</h4>
                         <pre id="send-data-preview"></pre>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-confirm-send" class="btn btn-primary">Enviar</button>
-                    <button id="btn-cancel-send" class="btn btn-secondary">Cancelar</button>
+                    <button id="btn-confirm-send" class="btn btn-primary" data-i18n="common.actions.confirm">Enviar</button>
+                    <button id="btn-cancel-send" class="btn btn-secondary" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -696,18 +696,18 @@
         <div id="transmit-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>📡 Transmisión Manual</h3>
+                    <h3 data-i18n="devices.modals.manual_transmission.title">📡 Transmisión Manual</h3>
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Selecciona una conexión para la transmisión:</p>
+                    <p data-i18n="devices.modals.manual_transmission.select_connection">Selecciona una conexión para la transmisión:</p>
                     <div class="connections-selector" id="transmit-connections-selector">
                         <!-- Lista de conexiones activas -->
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-confirm-transmit" class="btn btn-primary">Transmitir</button>
-                    <button id="btn-cancel-transmit" class="btn btn-secondary">Cancelar</button>
+                    <button id="btn-confirm-transmit" class="btn btn-primary" data-i18n="devices.actions.transmit_now">Transmitir</button>
+                    <button id="btn-cancel-transmit" class="btn btn-secondary" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -716,18 +716,18 @@
         <div id="add-devices-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>➕ Agregar Dispositivos al Proyecto</h3>
+                    <h3 data-i18n="projects.modals.add_devices.title">➕ Agregar Dispositivos al Proyecto</h3>
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Selecciona los dispositivos que deseas agregar al proyecto:</p>
+                    <p data-i18n="projects.modals.add_devices.select_devices">Selecciona los dispositivos que deseas agregar al proyecto:</p>
                     <div class="devices-selector" id="unassigned-devices-selector">
                         <!-- Lista de dispositivos sin asignar -->
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-confirm-add-devices" class="btn btn-primary">Agregar Seleccionados</button>
-                    <button id="btn-cancel-add-devices" class="btn btn-secondary">Cancelar</button>
+                    <button id="btn-confirm-add-devices" class="btn btn-primary" data-i18n="projects.modals.add_devices.confirm">Agregar Seleccionados</button>
+                    <button id="btn-cancel-add-devices" class="btn btn-secondary" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -736,23 +736,23 @@
         <div id="duplicate-device-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>🔄 Duplicar Dispositivo</h3>
+                    <h3 data-i18n="devices.duplicate.title">🔄 Duplicar Dispositivo</h3>
                     <button class="modal-close" onclick="hideDuplicateModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>¿Cuántas copias deseas crear de "<span id="device-name-to-duplicate"></span>"?</p>
+                    <p data-i18n="devices.duplicate.question">¿Cuántas copias deseas crear de "<span id="device-name-to-duplicate"></span>"?</p>
                     <div class="form-group">
-                        <label for="duplicate-count">Número de duplicados:</label>
+                        <label for="duplicate-count" data-i18n="devices.duplicate.count_label">Número de duplicados:</label>
                         <input type="number" id="duplicate-count" min="1" max="50" value="1">
                     </div>
                     <div class="duplicate-preview">
-                        <h4>Vista previa de nombres:</h4>
+                        <h4 data-i18n="devices.duplicate.preview_label">Vista previa de nombres:</h4>
                         <ul id="duplicate-names-preview"></ul>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-confirm-duplicate" class="btn btn-primary">Duplicar</button>
-                    <button id="btn-cancel-duplicate" class="btn btn-secondary" onclick="hideDuplicateModal()">Cancelar</button>
+                    <button id="btn-confirm-duplicate" class="btn btn-primary" data-i18n="devices.duplicate.confirm">Duplicar</button>
+                    <button id="btn-cancel-duplicate" class="btn btn-secondary" onclick="hideDuplicateModal()" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -761,16 +761,16 @@
         <div id="delete-device-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>🗑️ Eliminar Dispositivo</h3>
+                    <h3 data-i18n="devices.delete.title">🗑️ Eliminar Dispositivo</h3>
                     <button class="modal-close" onclick="hideDeleteModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Vas a eliminar el dispositivo "<span id="device-name-to-delete"></span>".</p>
-                    <p><strong>Esta acción es permanente y no se podrá recuperar.</strong> ¿Deseas continuar?</p>
+                    <p data-i18n="devices.delete.intro">Vas a eliminar el dispositivo "<span id="device-name-to-delete"></span>".</p>
+                    <p><strong data-i18n="devices.delete.warning_strong">Esta acción es permanente y no se podrá recuperar.</strong> <span data-i18n="devices.delete.confirm_question">¿Deseas continuar?</span></p>
                 </div>
                 <div class="modal-footer">
-                    <button id="btn-confirm-delete" class="btn btn-danger">Eliminar</button>
-                    <button id="btn-cancel-delete" class="btn btn-secondary" onclick="hideDeleteModal()">Cancelar</button>
+                    <button id="btn-confirm-delete" class="btn btn-danger" data-i18n="common.actions.delete">Eliminar</button>
+                    <button id="btn-cancel-delete" class="btn btn-secondary" onclick="hideDeleteModal()" data-i18n="common.actions.cancel">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -779,7 +779,7 @@
         <div id="operation-results-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="operation-title">Resultado de Operación</h3>
+                    <h3 class="operation-title" data-i18n="common.operations.result_title">Resultado de Operación</h3>
                     <button class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -791,7 +791,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" onclick="hideOperationResultsModal()">Cerrar</button>
+                    <button class="btn btn-primary" onclick="hideOperationResultsModal()" data-i18n="common.actions.close">Cerrar</button>
                 </div>
             </div>
         </div>

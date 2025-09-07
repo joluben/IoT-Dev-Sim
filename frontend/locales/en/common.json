@@ -21,9 +21,10 @@
     "search": "Search",
     "filter": "Filter",
     "export": "Export",
-    "view_details": "View Details",
+    "view_details": "Details",
     "duplicate": "Duplicate",
-    "new": "New"
+    "new": "New",
+    "close": "Close"
   },
   "status": {
     "active": "Active",
@@ -37,6 +38,13 @@
     "current": "English",
     "switch_to": "Switch to Spanish",
     "label": "Language"
+  },
+  "pagination": {
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "operations": {
+    "result_title": "Operation Result"
   },
   "common": {
     "name": "Name",

@@ -15,7 +15,12 @@
     "assign_devices": "Asignar Dispositivos",
     "remove_devices": "Remover Dispositivos",
     "bulk_start_transmission": "Iniciar Transmisión Masiva",
-    "bulk_stop_transmission": "Detener Transmisión Masiva"
+    "bulk_stop_transmission": "Detener Transmisión Masiva",
+    "start_transmissions": "Iniciar Transmisiones",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "stop": "Parar",
+    "add_devices": "Agregar Dispositivos"
   },
   "messages": {
     "project_created": "Proyecto creado exitosamente",
@@ -24,6 +29,42 @@
     "devices_assigned": "Dispositivos asignados al proyecto",
     "devices_removed": "Dispositivos removidos del proyecto",
     "no_projects": "No hay proyectos disponibles",
-    "loading_projects": "Cargando proyectos..."
+    "loading_projects": "Cargando proyectos...",
+    "no_project_devices": "No hay dispositivos en este proyecto"
+  },
+  "labels": {
+    "devices": "Dispositivos:",
+    "transmissions": "Transmisiones:",
+    "success": "Éxito:",
+    "connection_for_transmission": "Conexión para Transmisión"
+  },
+  "sections": {
+    "info": "Información del Proyecto",
+    "transmission_control": "Control de Transmisiones",
+    "devices": "Dispositivos del Proyecto",
+    "transmission_history": "Historial de Transmisiones"
+  },
+  "status": {
+    "inactive": "Transmisiones inactivas"
+  },
+  "select": {
+    "use_device_connection": "Usar conexión de cada dispositivo"
+  },
+  "history": {
+    "filters": {
+      "all_status": "Todos los estados",
+      "success": "Exitosas",
+      "failed": "Fallidas"
+    },
+    "actions": {
+      "refresh": "Actualizar"
+    }
+  },
+  "modals": {
+    "add_devices": {
+      "title": "➕ Agregar Dispositivos al Proyecto",
+      "select_devices": "Selecciona los dispositivos que deseas agregar al proyecto:",
+      "confirm": "Agregar Seleccionados"
+    }
   }
 }

@@ -23,7 +23,8 @@
     "export": "Exportar",
     "view_details": "Ver Detalles",
     "duplicate": "Duplicar",
-    "new": "Nuevo"
+    "new": "Nuevo",
+    "close": "Cerrar"
   },
   "status": {
     "active": "Activo",
@@ -37,6 +38,13 @@
     "current": "Español",
     "switch_to": "Cambiar a Inglés",
     "label": "Idioma"
+  },
+  "pagination": {
+    "prev": "Anterior",
+    "next": "Siguiente"
+  },
+  "operations": {
+    "result_title": "Resultado de Operación"
   },
   "common": {
     "name": "Nombre",

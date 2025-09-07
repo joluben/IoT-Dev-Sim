@@ -219,6 +219,13 @@ class I18n {
       const key = element.getAttribute('data-i18n-placeholder');
       element.placeholder = this.t(key);
     });
+
+    // Actualizar elementos con atributo data-i18n-title
+    const titleElements = document.querySelectorAll('[data-i18n-title]');
+    titleElements.forEach(element => {
+      const key = element.getAttribute('data-i18n-title');
+      element.title = this.t(key);
+    });
     
     // Actualizar selector de idioma
     this.updateLanguageSelector();

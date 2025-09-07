@@ -24,7 +24,8 @@
     "stop_transmission": "Detener Transmisión",
     "pause_transmission": "Pausar Transmisión",
     "resume_transmission": "Reanudar Transmisión",
-    "transmit_now": "Transmitir Ahora"
+    "transmit_now": "Transmitir Ahora",
+    "save_config": "Guardar Configuración"
   },
   "messages": {
     "device_created": "Dispositivo creado exitosamente",
@@ -36,11 +37,73 @@
     "no_devices": "No hay dispositivos disponibles",
     "loading_devices": "Cargando dispositivos..."
   },
+  "sections": {
+    "info": "Información del Dispositivo",
+    "import_csv": "Importar CSV",
+    "transmission": "Configuración de Transmisión",
+    "transmission_history": "Historial de Transmisiones"
+  },
+  "upload": {
+    "drag": "Arrastra tu archivo CSV aquí o",
+    "select_file": "selecciona un archivo"
+  },
+  "status": {
+    "inactive": "Inactivo"
+  },
+  "sensor": {
+    "current_position": "Posición actual:",
+    "reset_position": "Reiniciar Posición"
+  },
+  "labels": {
+    "connection_for_transmission": "Conexión para Transmisión",
+    "auto_transmission_enabled": "Transmisión automática habilitada",
+    "include_device_id": "Incluir device_id en payload"
+  },
+  "select": {
+    "connection_placeholder": "Seleccionar conexión..."
+  },
+  "history": {
+    "filters": {
+      "all_status": "Todos los estados",
+      "success": "Exitosas",
+      "failed": "Fallidas",
+      "all_connections": "Todas las conexiones"
+    },
+    "actions": {
+      "refresh": "Actualizar"
+    },
+    "page_info": "Página 1"
+  },
+  "preview": {
+    "title": "Previsualización",
+    "csv": "Vista CSV",
+    "json": "Vista JSON",
+    "save_data": "Guardar Datos",
+    "send_to_connection": "Enviar a Conexión"
+  },
+  "modals": {
+    "send_data": {
+      "title": "Enviar Datos del Dispositivo",
+      "select_connection": "Selecciona una conexión para enviar los datos:",
+      "preview_title": "Vista previa de los datos:"
+    },
+    "manual_transmission": {
+      "title": "Transmisión Manual",
+      "select_connection": "Selecciona una conexión para la transmisión:"
+    }
+  },
+  "delete": {
+    "title": "Eliminar Dispositivo",
+    "intro": "Vas a eliminar el dispositivo \"{{name}}\".",
+    "warning_strong": "Esta acción es permanente y no se podrá recuperar.",
+    "confirm_question": "¿Deseas continuar?"
+  },
   "duplicate": {
     "title": "Duplicar Dispositivo",
     "count_label": "Número de duplicados",
     "preview_label": "Vista previa de nombres:",
     "confirm": "Confirmar Duplicación",
-    "success": "{{count}} dispositivos duplicados exitosamente"
+    "success": "{{count}} dispositivos duplicados exitosamente",
+    "question": "¿Cuántas copias deseas crear de \"{{name}}\"?"
   }
 }

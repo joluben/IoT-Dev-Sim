@@ -40,5 +40,44 @@
     "connection_test_failed": "Prueba de conexión fallida",
     "no_connections": "No hay conexiones disponibles",
     "loading_connections": "Cargando conexiones..."
+  },
+  "sections": {
+    "basic_info": "Información Básica",
+    "server_config": "Configuración de Servidor",
+    "authentication": "Autenticación",
+    "advanced": "Configuración avanzada"
+  },
+  "labels": {
+    "host": "Host/Servidor",
+    "port": "Puerto",
+    "endpoint": "Endpoint/Topic",
+    "api_key_header": "Nombre del Header",
+    "timeout": "Timeout (segundos)",
+    "retries": "Reintentos",
+    "additional_headers": "Headers adicionales"
+  },
+  "placeholders": {
+    "host": "ejemplo.com",
+    "port": "1883",
+    "endpoint": "/api/data o devices/topic",
+    "username": "nombre_usuario",
+    "password": "••••••••",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "api_key_header": "X-API-Key",
+    "api_key": "tu_api_key_aqui",
+    "timeout": "30",
+    "retries": "3",
+    "additional_headers": "{\"Content-Type\": \"application/json\"}"
+  },
+  "preview": {
+    "title": "Vista Previa",
+    "generated_config": "Configuración generada:"
+  },
+  "history": {
+    "title": "Historial de Pruebas",
+    "loading": "Cargando historial..."
+  },
+  "select": {
+    "type_placeholder": "Seleccionar tipo..."
   }
 }
