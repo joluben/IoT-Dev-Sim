@@ -32,6 +32,18 @@
     "loading_projects": "Loading projects...",
     "no_project_devices": "No devices in this project"
   },
+  "modals": {
+    "add_devices": {
+      "title": "Add Devices to Project",
+      "select_devices": "Select the devices you want to add to the project:",
+      "confirm": "Add Selected",
+      "no_devices": "No unassigned devices available",
+      "success": "{{count}} devices added to project successfully"
+    }
+  },
+  "select": {
+    "use_device_connection": "Use each device's connection"
+  },
   "labels": {
     "devices": "Devices:",
     "transmissions": "Transmissions:",
@@ -56,8 +68,5 @@
   },
   "status": {
     "inactive": "Transmissions inactive"
-  },
-  "select": {
-    "use_device_connection": "Use each device's connection"
   }
 }

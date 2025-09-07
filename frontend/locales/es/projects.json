@@ -62,9 +62,11 @@
   },
   "modals": {
     "add_devices": {
-      "title": "➕ Agregar Dispositivos al Proyecto",
+      "title": "Agregar Dispositivos al Proyecto",
       "select_devices": "Selecciona los dispositivos que deseas agregar al proyecto:",
-      "confirm": "Agregar Seleccionados"
+      "confirm": "Agregar Seleccionados",
+      "no_devices": "No hay dispositivos sin asignar disponibles",
+      "success": "{{count}} dispositivos agregados al proyecto exitosamente"
     }
   }
 }

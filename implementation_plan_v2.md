@@ -297,7 +297,6 @@ class I18n {
 # Actualizar requirements.txt
 Flask-JWT-Extended==4.5.2
 bcrypt==4.0.1
-python-dotenv==1.0.0  # Ya existe
 ```
 
 #### Subtarea 10.1.2: Crear modelo de Usuario
@@ -306,7 +305,7 @@ python-dotenv==1.0.0  # Ya existe
 class User:
     def __init__(self, id=None, username=None, email=None, password_hash=None, 
                  role='user', is_active=True, created_at=None):
-        # Implementar modelo de usuario con roles
+        # Implementar modelo de usuario con rol único
 ```
 
 #### Subtarea 10.1.3: Implementar sistema de autenticación
