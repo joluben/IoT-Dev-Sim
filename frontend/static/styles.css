@@ -13,11 +13,14 @@ body {
 }
 
 /* App shell layout with left sidebar */
-html, body { height: 100%; }
+html, body { 
+    height: 100%; 
+    overflow: hidden;
+}
 
 .app-shell {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
     background: #f0f2f5;
 }
 
@@ -30,6 +33,11 @@ html, body { height: 100%; }
     padding: 20px 16px;
     border-right: 1px solid rgba(255,255,255,0.06);
     justify-content: space-between;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
 }
 
 .sidebar-content {
@@ -132,6 +140,9 @@ html, body { height: 100%; }
 .main-content {
     flex: 1 1 auto;
     min-width: 0;
+    margin-left: 260px;
+    height: 100vh;
+    overflow-y: auto;
     padding: 24px;
 }
 
@@ -140,6 +151,10 @@ html, body { height: 100%; }
         flex-basis: 72px;
         padding: 16px 10px;
         align-items: center;
+        width: 72px;
+    }
+    .main-content {
+        margin-left: 72px;
     }
     .logo-text { display: none; }
     .logo { justify-content: center; border-bottom: none; margin-bottom: 8px; }
