@@ -769,16 +769,23 @@ header p {
 }
 
 /* Notificaciones */
+/* Support both legacy .notifications and current #notifications.notifications-container */
+#notifications,
+.notifications-container,
 .notifications {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
+    bottom: 20px;
+    left: 20px;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* allow clicks to pass through except on cards */
 }
 
 .notification {
-    background: white;
-    border-left: 4px solid #3498db;
+    background: var(--bg);
+    border-left: 4px solid var(--accent);
     padding: 15px 20px;
     margin-bottom: 10px;
     border-radius: 4px;

@@ -311,7 +311,7 @@
                                 <select id="connection-type" name="type" required>
                                     <option value="" data-i18n="connections.select.type_placeholder">Seleccionar tipo...</option>
                                     <option value="MQTT">📄 MQTT (Mosquitto)</option>
-                                    <option value="HTTPS">🌐 HTTPS REST API</option>
+                                    <option value="HTTPS">🌐 HTTPS/HTTP REST API</option>
                                 </select>
                             </div>
                             <div class="form-group full-width">
@@ -343,6 +343,20 @@
                                 <small class="form-help">
                                     Para HTTPS: ruta del endpoint. Para MQTT: topic de destino
                                 </small>
+                            </div>
+                            <!-- HTTP/HTTPS options -->
+                            <div class="form-group">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+                                    <input type="checkbox" id="connection-ssl" name="ssl" checked>
+                                    Usar HTTPS (SSL)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+                                    <input type="checkbox" id="connection-verify-ssl" name="verify_ssl" checked>
+                                    Verificar certificado SSL
+                                </label>
+                                <small class="form-help">Desmarca para pruebas con certificados autofirmados</small>
                             </div>
                         </div>
                     </section>

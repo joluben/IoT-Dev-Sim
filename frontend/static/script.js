@@ -309,6 +309,33 @@ const API = {
 };
 
 // Utility Functions
+
+// Helpers for connection scheme/type display
+function getHttpSchemeForConnection(conn) {
+    if (!conn || conn.type !== 'HTTPS') return null;
+    const cfg = conn.connection_config || {};
+    const host = (conn.host || '').toLowerCase();
+    // 1) Respect explicit scheme in host
+    if (host.startsWith('http://')) return 'http';
+    if (host.startsWith('https://')) return 'https';
+    // 2) Respect explicit ssl flag
+    if (Object.prototype.hasOwnProperty.call(cfg, 'ssl')) {
+        return cfg.ssl ? 'https' : 'http';
+    }
+    // 3) Infer by port
+    if (conn.port != null) {
+        return Number(conn.port) === 443 ? 'https' : 'http';
+    }
+    // 4) Default
+    return 'http';
+}
+
+function getConnectionDisplayLabel(conn) {
+    if (conn.type === 'MQTT') return 'MQTT';
+    const scheme = getHttpSchemeForConnection(conn);
+    return scheme === 'https' ? 'HTTPS' : 'HTTP';
+}
+
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -336,7 +363,7 @@ async function showTransmitModal() {
                     <input type="radio" name="tx_connection" value="${conn.id}" id="tx-conn-${conn.id}">
                     <div class="connection-option-info">
                         <div class="connection-option-name">${conn.name}</div>
-                        <div class="connection-option-details">${conn.type} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
+                        <div class="connection-option-details">${getConnectionDisplayLabel(conn)} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
                     </div>
                 </div>
             `).join('');
@@ -753,7 +780,7 @@ async function loadProjectConnectionSelector() {
         
         selector.innerHTML = '<option value="">Usar conexión de cada dispositivo</option>' +
             activeConnections.map(conn => 
-                `<option value="${conn.id}">${conn.name} (${conn.type})</option>`
+                `<option value="${conn.id}">${conn.name} (${getConnectionDisplayLabel(conn)})</option>`
             ).join('');
             
     } catch (error) {
@@ -1750,8 +1777,11 @@ async function loadConnections() {
 
 function createConnectionCard(connection) {
     const statusClass = connection.is_active ? 'active' : 'inactive';
-    const typeClass = connection.type.toLowerCase();
-    const typeIcon = connection.type === 'MQTT' ? '🔄' : '🌐';
+    const typeLabel = getConnectionDisplayLabel(connection);
+    const typeClass = (connection.type === 'MQTT') ? 'mqtt' : (typeLabel.toLowerCase());
+    const typeIcon = connection.type === 'MQTT' ? '🔄' : (typeLabel === 'HTTPS' ? '🔒' : '🌐');
+    const scheme = getHttpSchemeForConnection(connection);
+    const schemeIcon = scheme === 'https' ? '🔒' : '🌐';
     
     return `
         <div class="connection-card">
@@ -1759,7 +1789,7 @@ function createConnectionCard(connection) {
             <div class="connection-header">
                 <div>
                     <div class="connection-title">${connection.name}</div>
-                    <div class="connection-type ${typeClass}">${typeIcon} ${connection.type}</div>
+                    <div class="connection-type ${typeClass}">${typeIcon} ${typeLabel}</div>
                 </div>
             </div>
             <div class="connection-info">
@@ -1786,6 +1816,8 @@ async function viewConnection(id) {
         document.getElementById('connection-detail-title').textContent = connection.name;
         
         const info = document.getElementById('connection-info');
+        const typeLabel = getConnectionDisplayLabel(connection);
+        const typeIcon = connection.type === 'MQTT' ? '🔄' : (typeLabel === 'HTTPS' ? '🔒' : '🌐');
         info.innerHTML = `
             <div class="device-info-grid">
                 <div class="info-item">
@@ -1794,7 +1826,7 @@ async function viewConnection(id) {
                 </div>
                 <div class="info-item">
                     <label>Tipo:</label>
-                    <span>${connection.type === 'MQTT' ? '🔄 MQTT' : '🌐 HTTPS'}</span>
+                    <span>${typeIcon} ${typeLabel}</span>
                 </div>
                 <div class="info-item">
                     <label>Host:</label>
@@ -1906,6 +1938,28 @@ async function editConnection(id) {
                 if (connection.additional_headers) {
                     const headersField = document.getElementById('connection-headers');
                     if (headersField) headersField.value = JSON.stringify(connection.additional_headers, null, 2);
+                }
+                // Prefill HTTP/HTTPS options if available
+                const cfg = connection.connection_config || {};
+                const sslCheckbox = document.getElementById('connection-ssl');
+                const verifySslCheckbox = document.getElementById('connection-verify-ssl');
+                const methodField = document.getElementById('connection-method');
+                if (sslCheckbox) {
+                    if (Object.prototype.hasOwnProperty.call(cfg, 'ssl')) {
+                        sslCheckbox.checked = !!cfg.ssl;
+                    } else {
+                        sslCheckbox.checked = (connection.type === 'HTTPS');
+                    }
+                }
+                if (verifySslCheckbox) {
+                    if (Object.prototype.hasOwnProperty.call(cfg, 'verify_ssl')) {
+                        verifySslCheckbox.checked = !!cfg.verify_ssl;
+                    } else {
+                        verifySslCheckbox.checked = true;
+                    }
+                }
+                if (methodField && cfg.method) {
+                    methodField.value = cfg.method;
                 }
                 
                 // Trigger change events to show appropriate fields
@@ -2112,6 +2166,9 @@ function updateConfigPreview() {
     const authTypeField = document.getElementById('auth-type');
     const timeoutField = document.getElementById('connection-timeout');
     const retriesField = document.getElementById('connection-retries');
+    const methodField = document.getElementById('connection-method');
+    const sslCheckbox = document.getElementById('connection-ssl');
+    const verifySslCheckbox = document.getElementById('connection-verify-ssl');
     
     if (!nameField || !typeField || !hostField || !authTypeField) return;
     
@@ -2125,6 +2182,19 @@ function updateConfigPreview() {
         timeout: timeoutField ? timeoutField.value || 30 : 30,
         retries: retriesField ? retriesField.value || 3 : 3
     };
+
+    // HTTPS specific preview fields
+    if (config.type === 'HTTPS') {
+        if (methodField && methodField.value) {
+            config.method = methodField.value;
+        }
+        if (sslCheckbox) {
+            config.ssl = !!sslCheckbox.checked;
+        }
+        if (verifySslCheckbox) {
+            config.verify_ssl = !!verifySslCheckbox.checked;
+        }
+    }
     
     // Add auth config based on type
     const authType = config.auth_type;
@@ -2212,6 +2282,7 @@ async function handleConnectionSubmit() {
             connectionConfig.method = formData.get('method') || 'POST';
             connectionConfig.timeout = parseInt(formData.get('timeout')) || 30;
             connectionConfig.verify_ssl = formData.has('verify_ssl');
+            connectionConfig.ssl = formData.has('ssl');
         }
         
         connectionData.connection_config = connectionConfig;
@@ -2294,24 +2365,20 @@ async function showSendDataModal() {
             showNotification('No hay conexiones activas disponibles', 'warning');
             return;
         }
-        
         const selector = document.getElementById('connections-selector');
+        if (!selector) return;
         selector.innerHTML = activeConnections.map(conn => `
             <div class="connection-option" onclick="selectConnection(${conn.id})">
                 <input type="radio" name="connection" value="${conn.id}" id="conn-${conn.id}">
                 <div class="connection-option-info">
                     <div class="connection-option-name">${conn.name}</div>
-                    <div class="connection-option-details">
-                        ${conn.type} - ${conn.host}${conn.port ? ':' + conn.port : ''}
-                    </div>
+                    <div class="connection-option-details">${getConnectionDisplayLabel(conn)} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
                 </div>
             </div>
         `).join('');
-        
         // Show data preview
         const preview = document.getElementById('send-data-preview');
-        preview.textContent = JSON.stringify(currentDevice.csv_data, null, 2);
-        
+        if (preview) preview.textContent = JSON.stringify(currentDevice.csv_data, null, 2);
         document.getElementById('send-data-modal').classList.add('active');
         
     } catch (error) {
@@ -2509,7 +2576,7 @@ async function loadTransmissionConnections() {
             connections.forEach(conn => {
                 const option = document.createElement('option');
                 option.value = conn.id;
-                option.textContent = `${conn.name} (${conn.url})`;
+                option.textContent = `${conn.name} (${getConnectionDisplayLabel(conn)})`;
                 selector.appendChild(option);
             });
         }
