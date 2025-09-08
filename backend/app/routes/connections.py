@@ -4,13 +4,14 @@ from ..connection_clients import ConnectionClientFactory
 from ..pagination import PaginationHelper
 from ..database import get_db_session
 from ..sqlalchemy_models import ConnectionORM as SQLConnection
+from ..optimized_queries import OptimizedQueries
 import json
 
 connections_bp = Blueprint('connections', __name__)
 
 @connections_bp.route('/api/connections', methods=['GET'])
 def get_connections():
-    """Obtiene conexiones con paginación"""
+    """Obtiene conexiones con paginación optimizada"""
     try:
         # Extract pagination parameters
         page, per_page = PaginationHelper.get_pagination_params(
@@ -19,55 +20,54 @@ def get_connections():
             max_per_page=100
         )
         
-        # Try SQLAlchemy approach first
+        # Extract filter parameters
+        search = request.args.get('search', '').strip()
+        connection_type = request.args.get('type', '').strip()
+        is_active = request.args.get('active')
+        active_bool = None
+        if is_active is not None:
+            active_bool = is_active.lower() in ('true', '1', 'yes')
+        
+        # Use optimized query
         try:
-            with get_db_session() as session:
-                query = session.query(SQLConnection)
-                
-                # Apply filters if provided
-                search = request.args.get('search', '').strip()
-                if search:
-                    query = query.filter(
-                        SQLConnection.name.contains(search) |
-                        SQLConnection.type.contains(search) |
-                        SQLConnection.host.contains(search)
-                    )
-                
-                connection_type = request.args.get('type', '').strip()
-                if connection_type:
-                    query = query.filter(SQLConnection.type == connection_type)
-                
-                is_active = request.args.get('active')
-                if is_active is not None:
-                    active_bool = is_active.lower() in ('true', '1', 'yes')
-                    query = query.filter(SQLConnection.is_active == active_bool)
-                
-                # Apply pagination
-                result = PaginationHelper.paginate(query, page, per_page)
-                return jsonify(result)
-                
-        except Exception as sql_error:
-            # Fallback to legacy approach
+            result = OptimizedQueries.get_connections_summary(
+                page=page,
+                per_page=per_page,
+                search=search if search else None,
+                connection_type=connection_type if connection_type else None,
+                active=active_bool
+            )
+            
+            # Format response for pagination compatibility
+            return jsonify({
+                'items': result['items'],
+                'pagination': {
+                    'page': result['page'],
+                    'per_page': result['per_page'],
+                    'total': result['total'],
+                    'pages': result['pages']
+                }
+            })
+            
+        except Exception as optimized_error:
+            # Fallback to legacy approach if optimized query fails
             connections = Connection.get_all()
             
             # Apply search filter
-            search = request.args.get('search', '').strip().lower()
             if search:
+                search_lower = search.lower()
                 connections = [c for c in connections if (
-                    search in c.name.lower() or
-                    search in c.type.lower() or
-                    search in c.host.lower()
+                    search_lower in c.name.lower() or
+                    search_lower in c.type.lower() or
+                    search_lower in c.host.lower()
                 )]
             
             # Apply type filter
-            connection_type = request.args.get('type', '').strip()
             if connection_type:
                 connections = [c for c in connections if c.type == connection_type]
             
             # Apply active filter
-            is_active = request.args.get('active')
-            if is_active is not None:
-                active_bool = is_active.lower() in ('true', '1', 'yes')
+            if active_bool is not None:
                 connections = [c for c in connections if c.is_active == active_bool]
             
             # Manual pagination for legacy approach

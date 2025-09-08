@@ -41,7 +41,11 @@
   },
   "pagination": {
     "prev": "Anterior",
-    "next": "Siguiente"
+    "next": "Siguiente",
+    "per_page": "Elementos por página:",
+    "showing": "Mostrando {{start}}-{{end}} de {{total}} elementos",
+    "empty": "No hay elementos para mostrar",
+    "loading_more": "Cargando más elementos..."
   },
   "operations": {
     "result_title": "Resultado de Operación"

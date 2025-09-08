@@ -9,6 +9,7 @@ from ..project_operations import ProjectOperationManager
 from ..pagination import PaginationHelper
 from ..database import get_db_session
 from ..sqlalchemy_models import ProjectORM as SQLProject
+from ..optimized_queries import OptimizedQueries
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ projects_bp = Blueprint('projects', __name__)
 
 @projects_bp.route('/api/projects', methods=['GET'])
 def get_projects():
-    """Listar proyectos con paginación"""
+    """Listar proyectos con paginación optimizada"""
     try:
         # Extract pagination parameters
         page, per_page = PaginationHelper.get_pagination_params(
@@ -29,52 +30,52 @@ def get_projects():
             max_per_page=100
         )
         
-        # Try SQLAlchemy approach first
+        # Extract filter parameters
+        search = request.args.get('search', '').strip()
+        is_active = request.args.get('active')
+        active_bool = None
+        if is_active is not None:
+            active_bool = is_active.lower() in ('true', '1', 'yes')
+        transmission_status = request.args.get('transmission_status', '').strip()
+        
+        # Use optimized query
         try:
-            with get_db_session() as session:
-                query = session.query(SQLProject)
-                
-                # Apply filters if provided
-                search = request.args.get('search', '').strip()
-                if search:
-                    query = query.filter(
-                        SQLProject.name.contains(search) |
-                        SQLProject.description.contains(search)
-                    )
-                
-                is_active = request.args.get('active')
-                if is_active is not None:
-                    active_bool = is_active.lower() in ('true', '1', 'yes')
-                    query = query.filter(SQLProject.is_active == active_bool)
-                
-                transmission_status = request.args.get('transmission_status', '').strip()
-                if transmission_status:
-                    query = query.filter(SQLProject.transmission_status == transmission_status)
-                
-                # Apply pagination
-                result = PaginationHelper.paginate(query, page, per_page)
-                return jsonify(result)
-                
-        except Exception as sql_error:
-            # Fallback to legacy approach
+            result = OptimizedQueries.get_projects_summary(
+                page=page,
+                per_page=per_page,
+                search=search if search else None,
+                active=active_bool,
+                transmission_status=transmission_status if transmission_status else None
+            )
+            
+            # Format response for pagination compatibility
+            return jsonify({
+                'items': result['items'],
+                'pagination': {
+                    'page': result['page'],
+                    'per_page': result['per_page'],
+                    'total': result['total'],
+                    'pages': result['pages']
+                }
+            })
+            
+        except Exception as optimized_error:
+            # Fallback to legacy approach if optimized query fails
             projects = Project.get_all()
             
             # Apply search filter
-            search = request.args.get('search', '').strip().lower()
             if search:
+                search_lower = search.lower()
                 projects = [p for p in projects if (
-                    search in p.name.lower() or
-                    search in (p.description or '').lower()
+                    search_lower in p.name.lower() or
+                    search_lower in (p.description or '').lower()
                 )]
             
             # Apply active filter
-            is_active = request.args.get('active')
-            if is_active is not None:
-                active_bool = is_active.lower() in ('true', '1', 'yes')
+            if active_bool is not None:
                 projects = [p for p in projects if p.is_active == active_bool]
             
             # Apply transmission status filter
-            transmission_status = request.args.get('transmission_status', '').strip()
             if transmission_status:
                 projects = [p for p in projects if p.transmission_status == transmission_status]
             

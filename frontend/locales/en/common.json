@@ -41,7 +41,11 @@
   },
   "pagination": {
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "per_page": "Items per page:",
+    "showing": "Showing {{start}}-{{end}} of {{total}} items",
+    "empty": "No items to display",
+    "loading_more": "Loading more items..."
   },
   "operations": {
     "result_title": "Operation Result"

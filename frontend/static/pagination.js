@@ -27,6 +27,9 @@ class PaginationComponent {
             return;
         }
         
+        // Re-render on language change
+        document.addEventListener('languageChanged', () => this.render());
+
         this.render();
     }
     
@@ -131,17 +134,18 @@ class PaginationComponent {
      */
     renderInfo() {
         if (this.totalItems === 0) {
-            return '<div class="pagination-info">No hay elementos para mostrar</div>';
+            const text = (window.i18n ? window.i18n.t('common.pagination.empty') : 'No items to display');
+            return `<div class="pagination-info">${text}</div>`;
         }
         
         const start = (this.currentPage - 1) * this.pageSize + 1;
         const end = Math.min(this.currentPage * this.pageSize, this.totalItems);
         
-        return `
-            <div class="pagination-info">
-                Mostrando ${start}-${end} de ${this.totalItems} elementos
-            </div>
-        `;
+        const text = (window.i18n 
+            ? window.i18n.t('common.pagination.showing', { start, end, total: this.totalItems })
+            : `Showing ${start}-${end} of ${this.totalItems} items`
+        );
+        return `<div class="pagination-info">${text}</div>`;
     }
     
     /**
@@ -158,7 +162,8 @@ class PaginationComponent {
         paginationHTML += `
             <button class="pagination-btn ${!hasPrev || this.loading ? 'disabled' : ''}" 
                     data-page="${this.currentPage - 1}" 
-                    ${!hasPrev || this.loading ? 'disabled' : ''}>
+                    ${!hasPrev || this.loading ? 'disabled' : ''}
+                    title="${window.i18n ? window.i18n.t('common.pagination.prev') : 'Previous'}">
                 <i class="fas fa-chevron-left"></i>
             </button>
         `;
@@ -194,7 +199,8 @@ class PaginationComponent {
         paginationHTML += `
             <button class="pagination-btn ${!hasNext || this.loading ? 'disabled' : ''}" 
                     data-page="${this.currentPage + 1}"
-                    ${!hasNext || this.loading ? 'disabled' : ''}>
+                    ${!hasNext || this.loading ? 'disabled' : ''}
+                    title="${window.i18n ? window.i18n.t('common.pagination.next') : 'Next'}">
                 <i class="fas fa-chevron-right"></i>
             </button>
         `;
@@ -208,9 +214,10 @@ class PaginationComponent {
      * Render page size selector
      */
     renderSizeSelector() {
+        const label = window.i18n ? window.i18n.t('common.pagination.per_page') : 'Items per page:';
         return `
             <div class="pagination-size-selector">
-                <label for="page-size-select">Elementos por página:</label>
+                <label for="page-size-select">${label}</label>
                 <select id="page-size-select" ${this.loading ? 'disabled' : ''}>
                     ${this.options.pageSizes.map(size => 
                         `<option value="${size}" ${size === this.pageSize ? 'selected' : ''}>${size}</option>`
@@ -304,14 +311,22 @@ class InfiniteScrollComponent {
         // Add loading indicator
         this.loadingIndicator = document.createElement('div');
         this.loadingIndicator.className = 'infinite-scroll-loading';
+        const loadingText = window.i18n ? window.i18n.t('common.pagination.loading_more') : 'Loading more items...';
         this.loadingIndicator.innerHTML = `
             <div class="loading-spinner">
                 <i class="fas fa-spinner fa-spin"></i>
-                <span>Cargando más elementos...</span>
+                <span>${loadingText}</span>
             </div>
         `;
         this.loadingIndicator.style.display = 'none';
         this.container.appendChild(this.loadingIndicator);
+
+        // Update loading text on language change
+        document.addEventListener('languageChanged', () => {
+            const txt = window.i18n ? window.i18n.t('common.pagination.loading_more') : 'Loading more items...';
+            const span = this.loadingIndicator.querySelector('span');
+            if (span) span.textContent = txt;
+        });
     }
     
     /**

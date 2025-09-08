@@ -62,4 +62,5 @@ logs/
 .DS_Store
 Thumbs.db
 
+#Windsurf folder
 /.windsurf
