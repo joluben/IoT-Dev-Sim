@@ -1248,6 +1248,7 @@ async function loadDevices() {
 }
 
 function renderDevices(devicesArray) {
+    if (!devicesArray) return; // Guard clause to prevent errors if devices aren't loaded
     // Also update global devices array when rendering
     devices = devicesArray;
     
@@ -3322,11 +3323,11 @@ function updateDynamicTranslations() {
     }
     
     // Re-render current view content if needed
-    if (devices.length > 0) {
-        renderDevices();
+    if (document.getElementById('devices-list-view').classList.contains('active')) {
+        renderDevices(devices);
     }
-    if (connections.length > 0) {
-        renderConnections();
+    if (document.getElementById('connections-list-view').classList.contains('active')) {
+        renderConnections(connections);
     }
 }
 

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <title>DevSim - Simulador de señales de dispositivos</title>
     <link rel="stylesheet" href="styles.css">
     
@@ -345,16 +346,14 @@
                                 </small>
                             </div>
                             <!-- HTTP/HTTPS options -->
-                            <div class="form-group">
-                                <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+                            <div class="checkbox-container">
+                                <label class="checkbox-label">
                                     <input type="checkbox" id="connection-ssl" name="ssl" checked>
-                                    Usar HTTPS (SSL)
+                                    <span>Usar HTTPS (SSL)</span>
                                 </label>
-                            </div>
-                            <div class="form-group">
-                                <label style="display:flex; align-items:center; gap:8px; font-weight:500;">
+                                <label class="checkbox-label">
                                     <input type="checkbox" id="connection-verify-ssl" name="verify_ssl" checked>
-                                    Verificar certificado SSL
+                                    <span>Verificar certificado SSL</span>
                                 </label>
                                 <small class="form-help">Desmarca para pruebas con certificados autofirmados</small>
                             </div>

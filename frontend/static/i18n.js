@@ -23,7 +23,7 @@ class I18n {
     }
     
     // 2. Usar español como idioma por defecto (según requerimiento)
-    return this.defaultLanguage;
+    return this.defaultLanguage || 'es';
   }
   
   /**
@@ -31,6 +31,11 @@ class I18n {
    * @param {string} namespace - Namespace a cargar (common, devices, etc.)
    */
   async loadNamespace(namespace) {
+    // Ensure currentLanguage is set properly
+    if (!this.currentLanguage || this.currentLanguage === 'undefined') {
+      this.currentLanguage = this.defaultLanguage || 'es';
+    }
+    
     const namespaceKey = `${this.currentLanguage}-${namespace}`;
     
     if (this.loadedNamespaces.has(namespaceKey)) {
