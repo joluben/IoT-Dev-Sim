@@ -200,7 +200,7 @@ class TransmissionControlUI {
             this.updateStateIndicator(this.currentState, response);
             
         } catch (error) {
-            console.error('Error updating button states:', error);
+            // Error updating button states
             this.showError('Error updating transmission state');
         }
     }

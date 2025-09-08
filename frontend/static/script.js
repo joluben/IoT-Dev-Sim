@@ -582,7 +582,7 @@ async function loadProjects() {
         `).join('');
         
     } catch (error) {
-        console.error('Error loading projects:', error);
+        // Error loading projects
         const projectsGrid = document.getElementById('projects-grid');
         if (projectsGrid) {
             projectsGrid.innerHTML = '<div class="error">Error cargando proyectos</div>';
@@ -667,7 +667,7 @@ async function showProjectDetail(projectId) {
         showView('projectDetail');
         
     } catch (error) {
-        console.error('Error loading project detail:', error);
+        // Error loading project detail
         showNotification('Error cargando detalle del proyecto', 'error');
     }
 }
@@ -762,7 +762,7 @@ async function loadProjectDevices(projectId) {
         `).join('');
         
     } catch (error) {
-        console.error('Error loading project devices:', error);
+        // Error loading project devices
         const devicesList = document.getElementById('project-devices-list');
         if (devicesList) {
             devicesList.innerHTML = '<div class="error">Error cargando dispositivos</div>';
@@ -784,7 +784,7 @@ async function loadProjectConnectionSelector() {
             ).join('');
             
     } catch (error) {
-        console.error('Error loading connections for project:', error);
+        // Error loading connections for project
     }
 }
 
@@ -808,7 +808,7 @@ async function startProjectTransmission() {
         }
         
     } catch (error) {
-        console.error('Error starting project transmission:', error);
+        // Error starting project transmission
         showNotification('Error al iniciar transmisiones del proyecto', 'error');
     }
 }
@@ -829,7 +829,7 @@ async function pauseProjectTransmission() {
         }
         
     } catch (error) {
-        console.error('Error pausing project transmission:', error);
+        // Error pausing project transmission
         showNotification('Error al pausar transmisiones del proyecto', 'error');
     }
 }
@@ -850,7 +850,7 @@ async function resumeProjectTransmission() {
         }
         
     } catch (error) {
-        console.error('Error resuming project transmission:', error);
+        // Error resuming project transmission
         showNotification('Error al reanudar transmisiones del proyecto', 'error');
     }
 }
@@ -869,7 +869,7 @@ async function stopProjectTransmission() {
         updateProjectTransmissionStatus('INACTIVE');
         
     } catch (error) {
-        console.error('Error stopping project transmission:', error);
+        // Error stopping project transmission
         showNotification('Error al detener transmisiones del proyecto', 'error');
     }
 }
@@ -897,7 +897,7 @@ async function loadProjectTransmissionHistory(projectId) {
         renderProjectTransmissionHistory();
         
     } catch (error) {
-        console.error('Error loading project transmission history:', error);
+        // Error loading project transmission history
         const list = document.getElementById('project-transmission-history-list');
         if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
     }
@@ -1060,7 +1060,7 @@ async function showAddDevicesModal() {
         modal.style.display = 'block';
         
     } catch (error) {
-        console.error('Error loading unassigned devices:', error);
+        // Error loading unassigned devices
         showNotification('Error cargando dispositivos disponibles', 'error');
     }
 }
@@ -1095,7 +1095,7 @@ async function addSelectedDevicesToProject() {
         hideAddDevicesModal();
         
     } catch (error) {
-        console.error('Error adding devices to project:', error);
+        // Error adding devices to project
         showNotification('Error agregando dispositivos al proyecto', 'error');
     }
 }
@@ -1111,7 +1111,7 @@ async function removeDeviceFromProject(deviceId) {
         await loadProjectDevices(currentProject.id);
         
     } catch (error) {
-        console.error('Error removing device from project:', error);
+        // Error removing device from project
         showNotification('Error removiendo dispositivo del proyecto', 'error');
     }
 }
@@ -1745,12 +1745,12 @@ async function loadConnections() {
     const loading = document.getElementById('connections-loading');
     
     if (!grid) {
-        console.warn('connections-grid element not found, skipping load');
+        // connections-grid element not found, skipping load
         return;
     }
     
     if (!loading) {
-        console.warn('connections-loading element not found, continuing without loading indicator');
+        // connections-loading element not found, continuing without loading indicator
     }
     
     try {
@@ -1976,7 +1976,7 @@ async function editConnection(id) {
                 updateTestButtonState();
                 
             } catch (domError) {
-                console.error('Error filling form fields:', domError);
+                // Error filling form fields
                 showNotification('Error llenando formulario: ' + domError.message, 'error');
             }
         }, 100);
@@ -2845,7 +2845,7 @@ async function loadConnectionsForFilter() {
                 connections.map(conn => `<option value="${conn.id}">${conn.name}</option>`).join('');
         }
     } catch (error) {
-        console.error('Error loading connections for filter:', error);
+        // Error loading connections for filter
     }
 }
 
@@ -2927,7 +2927,7 @@ function initializeTransmissionControls() {
             showView('projectsList');
             loadProjects();
         } catch (error) {
-            console.error('Error deleting project:', error);
+            // Error deleting project
             showNotification('Error eliminando proyecto', 'error');
         }
     });
@@ -2962,7 +2962,7 @@ function initializeTransmissionControls() {
             loadProjects();
             
         } catch (error) {
-            console.error('Error saving project:', error);
+            // Error saving project
             const errorMsg = error.message || 'Error guardando proyecto';
             showNotification(errorMsg, 'error');
         }
@@ -3011,7 +3011,7 @@ async function editProject(projectId) {
         showView('projectForm');
         
     } catch (error) {
-        console.error('Error loading project for edit:', error);
+        // Error loading project for edit
         showNotification('Error cargando proyecto', 'error');
     }
 }
@@ -3066,7 +3066,7 @@ async function showDuplicateModal(deviceId) {
         return;
     }
     
-    console.log('Found device for duplication:', device.name);
+    // Found device for duplication
     
     // Show modal first to ensure DOM elements exist
     document.getElementById('duplicate-device-modal').classList.add('active');
@@ -3138,7 +3138,7 @@ async function confirmDuplicateDevice() {
         loadDevices();
         
     } catch (error) {
-        console.error('Error duplicating device:', error);
+        // Error duplicating device
         showNotification('Error duplicando dispositivo: ' + error.message, 'error');
     }
 }
@@ -3168,7 +3168,7 @@ async function showDeleteModal(deviceId) {
         return;
     }
     
-    console.log('Found device for deletion:', device.name);
+    // Found device for deletion
     
     // Show modal first to ensure DOM elements exist
     document.getElementById('delete-device-modal').classList.add('active');
@@ -3217,7 +3217,7 @@ async function confirmDeleteDevice() {
             showNotification(error.error || 'Error al eliminar dispositivo', 'error');
         }
     } catch (error) {
-        console.error('Error deleting device:', error);
+        // Error deleting device
         showNotification('Error de conexión al eliminar dispositivo', 'error');
     } finally {
         // Re-enable buttons
@@ -3249,7 +3249,7 @@ window.selectTransmitConnection = selectTransmitConnection;
 
 // Initialize i18n system when DOM is loaded
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Initializing Device Simulator with i18n support');
+    // Initializing Device Simulator with i18n support
     
     try {
         // Initialize i18n system
