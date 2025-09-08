@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet
 import os
 import base64
 from .database import execute_query, execute_insert
+from .orm_adapter import DeviceORMAdapter, ConnectionORMAdapter, ProjectORMAdapter, TransmissionORMAdapter
 
 class Device:
     DEVICE_TYPES = ['WebApp', 'Sensor']
@@ -51,15 +52,35 @@ class Device:
 
     @classmethod
     def get_all(cls):
-        """Obtiene todos los dispositivos"""
-        rows = execute_query('SELECT * FROM devices ORDER BY created_at DESC')
-        return [cls._from_row(row) for row in rows]
+        """Obtiene todos los dispositivos - optimized with SQLAlchemy"""
+        try:
+            # Use SQLAlchemy ORM adapter for better performance
+            devices_data = DeviceORMAdapter.get_all()
+            devices = []
+            for device_data in devices_data:
+                # Handle potential missing fields
+                device_data = dict(device_data) if hasattr(device_data, 'keys') else device_data
+                devices.append(cls(**device_data))
+            return devices
+        except Exception as e:
+            # Fallback to legacy method
+            rows = execute_query('SELECT * FROM devices ORDER BY created_at DESC')
+            return [cls._from_row(row) for row in rows]
 
     @classmethod
     def get_by_id(cls, device_id):
-        """Obtiene un dispositivo por ID"""
-        rows = execute_query('SELECT * FROM devices WHERE id = ?', [device_id])
-        return cls._from_row(rows[0]) if rows else None
+        """Obtiene un dispositivo por ID - optimized with SQLAlchemy"""
+        try:
+            # Use SQLAlchemy ORM adapter for better performance
+            device_data = DeviceORMAdapter.get_by_id(device_id)
+            if device_data:
+                device_data = dict(device_data) if hasattr(device_data, 'keys') else device_data
+                return cls(**device_data)
+            return None
+        except Exception:
+            # Fallback to legacy method
+            rows = execute_query('SELECT * FROM devices WHERE id = ?', [device_id])
+            return cls._from_row(rows[0]) if rows else None
 
     @classmethod
     def get_by_reference(cls, reference):

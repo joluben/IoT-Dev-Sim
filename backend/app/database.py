@@ -2,7 +2,32 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
+# SQLAlchemy imports for Phase 10 optimization
+from sqlalchemy import create_engine, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.pool import StaticPool
+
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'database.sqlite')
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+
+# SQLAlchemy setup with connection pooling
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=StaticPool,
+    connect_args={
+        'check_same_thread': False,  # Allow SQLite to be used across threads
+    },
+    pool_pre_ping=True,
+    pool_recycle=3600,  # Recycle connections after 1 hour
+    echo=False  # Set to True for SQL debugging
+)
+
+Base = declarative_base()
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Thread-safe session factory
+db_session = scoped_session(SessionLocal)
 
 def init_db():
     """Inicializa y migra la base de datos creando y actualizando tablas."""
@@ -134,9 +159,32 @@ def add_column_if_not_exists(conn, table_name, column_name, column_definition):
     if column_name not in columns:
         conn.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}')
 
+# SQLAlchemy session management (Phase 10 optimization)
+@contextmanager
+def get_db_session():
+    """Context manager for SQLAlchemy sessions with automatic rollback"""
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+def get_scoped_session():
+    """Get thread-safe scoped session"""
+    return db_session
+
+def close_scoped_session():
+    """Remove scoped session"""
+    db_session.remove()
+
+# Legacy SQLite functions (maintained for backward compatibility)
 @contextmanager
 def get_db_connection():
-    """Context manager para conexiones a la base de datos"""
+    """Context manager para conexiones a la base de datos (legacy)"""
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -145,14 +193,28 @@ def get_db_connection():
         conn.close()
 
 def execute_query(query, params=None):
-    """Ejecuta una query y retorna los resultados"""
+    """Ejecuta una query y retorna los resultados (legacy)"""
     with get_db_connection() as conn:
         cursor = conn.execute(query, params or [])
         return cursor.fetchall()
 
 def execute_insert(query, params=None):
-    """Ejecuta un INSERT y retorna el ID del registro creado"""
+    """Ejecuta un INSERT y retorna el ID del registro creado (legacy)"""
     with get_db_connection() as conn:
         cursor = conn.execute(query, params or [])
         conn.commit()
         return cursor.lastrowid
+
+# SQLAlchemy query helpers
+def execute_sqlalchemy_query(query_text, params=None):
+    """Execute raw SQL using SQLAlchemy engine"""
+    with engine.connect() as conn:
+        result = conn.execute(text(query_text), params or {})
+        return result.fetchall()
+
+def execute_sqlalchemy_insert(query_text, params=None):
+    """Execute INSERT using SQLAlchemy engine"""
+    with engine.connect() as conn:
+        result = conn.execute(text(query_text), params or {})
+        conn.commit()
+        return result.lastrowid
