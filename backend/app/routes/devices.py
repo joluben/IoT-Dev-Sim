@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify
 from ..models import Device
+from ..pagination import PaginationHelper
+from ..database import get_db_session
+from ..sqlalchemy_models import DeviceORM as SQLDevice
 
 devices_bp = Blueprint('devices', __name__)
 
@@ -24,10 +27,67 @@ def create_device():
 
 @devices_bp.route('/devices', methods=['GET'])
 def get_devices():
-    """Obtener todos los dispositivos"""
+    """Obtener dispositivos con paginación"""
     try:
-        devices = Device.get_all()
-        return jsonify([device.to_dict() for device in devices])
+        # Extract pagination parameters
+        page, per_page = PaginationHelper.get_pagination_params(
+            request.args, 
+            default_per_page=20, 
+            max_per_page=100
+        )
+        
+        # Try SQLAlchemy approach first
+        try:
+            with get_db_session() as session:
+                query = session.query(SQLDevice)
+                
+                # Apply filters if provided
+                search = request.args.get('search', '').strip()
+                if search:
+                    query = query.filter(
+                        SQLDevice.name.contains(search) |
+                        SQLDevice.reference.contains(search) |
+                        SQLDevice.description.contains(search)
+                    )
+                
+                device_type = request.args.get('type', '').strip()
+                if device_type:
+                    query = query.filter(SQLDevice.device_type == device_type)
+                
+                # Apply pagination
+                result = PaginationHelper.paginate(query, page, per_page)
+                return jsonify(result)
+                
+        except Exception as sql_error:
+            # Fallback to legacy approach
+            devices = Device.get_all()
+            
+            # Apply search filter
+            search = request.args.get('search', '').strip().lower()
+            if search:
+                devices = [d for d in devices if (
+                    search in d.name.lower() or
+                    search in d.reference.lower() or
+                    search in (d.description or '').lower()
+                )]
+            
+            # Apply type filter
+            device_type = request.args.get('type', '').strip()
+            if device_type:
+                devices = [d for d in devices if d.device_type == device_type]
+            
+            # Manual pagination for legacy approach
+            total = len(devices)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_devices = devices[start_idx:end_idx]
+            
+            return jsonify(PaginationHelper.create_pagination_response(
+                items=[device.to_dict() for device in paginated_devices],
+                total=total,
+                page=page,
+                per_page=per_page
+            ))
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

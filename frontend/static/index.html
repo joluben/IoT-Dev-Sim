@@ -6,6 +6,8 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <title>DevSim - Simulador de señales de dispositivos</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome for pagination chevrons and spinner icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     
 </head>
 <body>
@@ -46,6 +48,9 @@
             <div class="devices-grid" id="devices-grid">
                 <div class="loading" id="devices-loading">Cargando dispositivos...</div>
             </div>
+            
+            <!-- Pagination for devices -->
+            <div id="devices-pagination"></div>
         </div>
 
         <!-- Vista: Crear Dispositivo -->
@@ -274,6 +279,9 @@
             <div class="connections-grid" id="connections-grid">
                 <div class="loading" id="connections-loading" data-i18n="connections.messages.loading_connections">Cargando conexiones...</div>
             </div>
+            
+            <!-- Pagination for connections -->
+            <div id="connections-pagination"></div>
         </div>
 
         <!-- Vista: Crear/Editar Conexión -->
@@ -440,6 +448,8 @@
                                     </small>
                                 </div>
                             </div>
+                            <!-- Dynamic advanced fields container injected by showAdvancedFields() -->
+                            <div id="advanced-fields"></div>
                         </div>
                     </section>
 
@@ -517,6 +527,9 @@
             <div class="projects-grid" id="projects-grid">
                 <div class="loading" id="projects-loading" data-i18n="projects.messages.loading_projects">Cargando proyectos...</div>
             </div>
+            
+            <!-- Pagination for projects -->
+            <div id="projects-pagination"></div>
         </div>
 
         <!-- Vista: Crear/Editar Proyecto -->
@@ -817,6 +830,7 @@
     <div id="notifications" class="notifications-container"></div>
 
     <script src="i18n.js"></script>
+    <script src="pagination.js"></script>
     <script src="transmission-api.js"></script>
     <script src="realtime.js"></script>
     <script src="script.js"></script>

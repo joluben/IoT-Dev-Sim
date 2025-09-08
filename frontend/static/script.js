@@ -8,6 +8,7 @@ const API_BASE = window.location.hostname === 'localhost' && window.location.por
 // Global variables
 let devices = [];
 let connections = [];
+let projects = [];
 let currentDevice = null;
 let currentConnection = null;
 let currentProject = null;
@@ -18,6 +19,11 @@ let editingConnection = null;
 let lastTransmissionHistory = [];
 let lastProjectTransmissionHistory = [];
 let websocket = null;
+
+// Pagination components
+let devicesPagination = null;
+let connectionsPagination = null;
+let projectsPagination = null;
 
 // DOM Elements
 const views = {
@@ -56,8 +62,16 @@ const API = {
         return response.json();
     },
 
-    async getDevices() {
-        const response = await fetch(`${API_BASE}/devices`);
+    async getDevices(page = 1, perPage = 20, search = '', type = '') {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: perPage.toString()
+        });
+        
+        if (search) params.append('search', search);
+        if (type) params.append('type', type);
+        
+        const response = await fetch(`${API_BASE}/devices?${params}`);
         return response.json();
     },
 
@@ -87,8 +101,17 @@ const API = {
     },
 
     // Connections API
-    async getConnections() {
-        const response = await fetch(`${API_BASE}/connections`);
+    async getConnections(page = 1, perPage = 20, search = '', type = '', active = null) {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: perPage.toString()
+        });
+        
+        if (search) params.append('search', search);
+        if (type) params.append('type', type);
+        if (active !== null) params.append('active', active.toString());
+        
+        const response = await fetch(`${API_BASE}/connections?${params}`);
         return response.json();
     },
 
@@ -185,8 +208,17 @@ const API = {
     },
 
     // Project API functions
-    async getProjects() {
-        const response = await fetch(`${API_BASE}/projects`);
+    async getProjects(page = 1, perPage = 20, search = '', active = null, transmissionStatus = '') {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: perPage.toString()
+        });
+        
+        if (search) params.append('search', search);
+        if (active !== null) params.append('active', active.toString());
+        if (transmissionStatus) params.append('transmission_status', transmissionStatus);
+        
+        const response = await fetch(`${API_BASE}/projects?${params}`);
         const text = await response.text();
         let payload;
         try { payload = text ? JSON.parse(text) : []; }
@@ -543,25 +575,41 @@ function attachHistoryFilterListeners() {
 // ============================================================================
 
 // Project navigation and loading
-async function loadProjects() {
+async function loadProjects(page = 1, perPage = 20, search = '', active = null, transmissionStatus = '') {
     try {
         const projectsGrid = document.getElementById('projects-grid');
         if (!projectsGrid) return;
         
         projectsGrid.innerHTML = '<div class="loading">Cargando proyectos...</div>';
         
-        const projects = await API.getProjects();
-        if (!Array.isArray(projects)) {
-            const errMsg = projects && projects.error ? projects.error : 'Respuesta inesperada al cargar proyectos';
+        // Get paginated projects data
+        const response = await API.getProjects(page, perPage, search, active, transmissionStatus);
+        
+        // Handle both paginated and legacy response formats
+        let projectsData;
+        if (response.items) {
+            // Paginated response
+            projectsData = response.items;
+            
+            // Update pagination component
+            if (projectsPagination) {
+                projectsPagination.update(response.pagination || response);
+                projectsPagination.setLoading(false);
+            }
+        } else if (Array.isArray(response)) {
+            // Legacy response format
+            projectsData = response;
+        } else {
+            const errMsg = response && response.error ? response.error : 'Respuesta inesperada al cargar proyectos';
             throw new Error(errMsg);
         }
         
-        if (projects.length === 0) {
+        if (projectsData.length === 0) {
             projectsGrid.innerHTML = '<div class="empty-state">No hay proyectos creados</div>';
             return;
         }
         
-        projectsGrid.innerHTML = projects.map(project => `
+        projectsGrid.innerHTML = projectsData.map(project => `
             <div class="project-card" onclick="showProjectDetail(${project.id})">
                 <div class="project-header">
                     <h3>${project.name}</h3>
@@ -1235,10 +1283,30 @@ function formatDate(dateString) {
 }
 
 // Device Functions
-async function loadDevices() {
+async function loadDevices(page = 1, perPage = 20, search = '', type = '') {
     try {
         elements.devicesLoading.style.display = 'block';
-        devices = await API.getDevices(); // Store in global variable
+        
+        // Get paginated devices data
+        const response = await API.getDevices(page, perPage, search, type);
+        
+        // Handle both paginated and legacy response formats
+        if (response.items) {
+            // Paginated response
+            devices = response.items;
+            
+            // Update pagination component
+            if (devicesPagination) {
+                devicesPagination.update(response.pagination || response);
+                devicesPagination.setLoading(false);
+            }
+        } else if (Array.isArray(response)) {
+            // Legacy response format
+            devices = response;
+        } else {
+            throw new Error('Formato de respuesta inesperado');
+        }
+        
         renderDevices(devices);
     } catch (error) {
         showNotification('Error al cargar dispositivos: ' + error.message, 'error');
@@ -1741,7 +1809,7 @@ function setActiveNav(section) {
 }
 
 // Connection functions
-async function loadConnections() {
+async function loadConnections(page = 1, perPage = 20, search = '', type = '', active = null) {
     const grid = document.getElementById('connections-grid');
     const loading = document.getElementById('connections-loading');
     
@@ -1758,12 +1826,32 @@ async function loadConnections() {
         if (loading) {
             loading.style.display = 'block';
         }
-        const connections = await API.getConnections();
         
-        if (connections.length === 0) {
+        // Get paginated connections data
+        const response = await API.getConnections(page, perPage, search, type, active);
+        
+        // Handle both paginated and legacy response formats
+        let connectionsData;
+        if (response.items) {
+            // Paginated response
+            connectionsData = response.items;
+            
+            // Update pagination component
+            if (connectionsPagination) {
+                connectionsPagination.update(response.pagination || response);
+                connectionsPagination.setLoading(false);
+            }
+        } else if (Array.isArray(response)) {
+            // Legacy response format
+            connectionsData = response;
+        } else {
+            throw new Error('Formato de respuesta inesperado');
+        }
+        
+        if (connectionsData.length === 0) {
             grid.innerHTML = '<div class="loading">No hay conexiones configuradas</div>';
         } else {
-            grid.innerHTML = connections.map(conn => createConnectionCard(conn)).join('');
+            grid.innerHTML = connectionsData.map(conn => createConnectionCard(conn)).join('');
         }
     } catch (error) {
         console.error('Error loading connections:', error);
@@ -3357,10 +3445,49 @@ function initializeDefaultNavigation() {
     showView('devicesList');
 }
 
+// Initialize pagination components
+function initializePagination() {
+    // Initialize devices pagination
+    devicesPagination = new PaginationComponent('devices-pagination', (page, pageSize) => {
+        loadDevices(page, pageSize);
+    }, {
+        showInfo: true,
+        showSizeSelector: true,
+        maxVisiblePages: 5,
+        pageSizes: [10, 20, 50, 100],
+        defaultPageSize: 20
+    });
+    
+    // Initialize connections pagination
+    connectionsPagination = new PaginationComponent('connections-pagination', (page, pageSize) => {
+        loadConnections(page, pageSize);
+    }, {
+        showInfo: true,
+        showSizeSelector: true,
+        maxVisiblePages: 5,
+        pageSizes: [10, 20, 50, 100],
+        defaultPageSize: 20
+    });
+    
+    // Initialize projects pagination
+    projectsPagination = new PaginationComponent('projects-pagination', (page, pageSize) => {
+        loadProjects(page, pageSize);
+    }, {
+        showInfo: true,
+        showSizeSelector: true,
+        maxVisiblePages: 5,
+        pageSizes: [10, 20, 50, 100],
+        defaultPageSize: 20
+    });
+}
+
 // Initialize the main application
 async function initializeApp() {
     // Initialize sidebar navigation
     initializeDefaultNavigation();
+    
+    // Initialize pagination components
+    initializePagination();
     
     // Load initial data
     await loadDevices();

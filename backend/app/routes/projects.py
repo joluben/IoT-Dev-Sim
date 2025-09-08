@@ -6,6 +6,9 @@ from flask import Blueprint, request, jsonify
 import logging
 from ..models import Project, Device, Connection
 from ..project_operations import ProjectOperationManager
+from ..pagination import PaginationHelper
+from ..database import get_db_session
+from ..sqlalchemy_models import ProjectORM as SQLProject
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +20,77 @@ projects_bp = Blueprint('projects', __name__)
 
 @projects_bp.route('/api/projects', methods=['GET'])
 def get_projects():
-    """Listar todos los proyectos"""
+    """Listar proyectos con paginación"""
     try:
-        projects = Project.get_all()
-        return jsonify([project.to_dict() for project in projects])
+        # Extract pagination parameters
+        page, per_page = PaginationHelper.get_pagination_params(
+            request.args, 
+            default_per_page=20, 
+            max_per_page=100
+        )
+        
+        # Try SQLAlchemy approach first
+        try:
+            with get_db_session() as session:
+                query = session.query(SQLProject)
+                
+                # Apply filters if provided
+                search = request.args.get('search', '').strip()
+                if search:
+                    query = query.filter(
+                        SQLProject.name.contains(search) |
+                        SQLProject.description.contains(search)
+                    )
+                
+                is_active = request.args.get('active')
+                if is_active is not None:
+                    active_bool = is_active.lower() in ('true', '1', 'yes')
+                    query = query.filter(SQLProject.is_active == active_bool)
+                
+                transmission_status = request.args.get('transmission_status', '').strip()
+                if transmission_status:
+                    query = query.filter(SQLProject.transmission_status == transmission_status)
+                
+                # Apply pagination
+                result = PaginationHelper.paginate(query, page, per_page)
+                return jsonify(result)
+                
+        except Exception as sql_error:
+            # Fallback to legacy approach
+            projects = Project.get_all()
+            
+            # Apply search filter
+            search = request.args.get('search', '').strip().lower()
+            if search:
+                projects = [p for p in projects if (
+                    search in p.name.lower() or
+                    search in (p.description or '').lower()
+                )]
+            
+            # Apply active filter
+            is_active = request.args.get('active')
+            if is_active is not None:
+                active_bool = is_active.lower() in ('true', '1', 'yes')
+                projects = [p for p in projects if p.is_active == active_bool]
+            
+            # Apply transmission status filter
+            transmission_status = request.args.get('transmission_status', '').strip()
+            if transmission_status:
+                projects = [p for p in projects if p.transmission_status == transmission_status]
+            
+            # Manual pagination for legacy approach
+            total = len(projects)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_projects = projects[start_idx:end_idx]
+            
+            return jsonify(PaginationHelper.create_pagination_response(
+                items=[project.to_dict() for project in paginated_projects],
+                total=total,
+                page=page,
+                per_page=per_page
+            ))
+        
     except Exception as e:
         logger.error(f"Error getting projects: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500

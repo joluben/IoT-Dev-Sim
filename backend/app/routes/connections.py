@@ -1,16 +1,88 @@
 from flask import Blueprint, request, jsonify
 from ..models import Connection, ConnectionTest
 from ..connection_clients import ConnectionClientFactory
+from ..pagination import PaginationHelper
+from ..database import get_db_session
+from ..sqlalchemy_models import ConnectionORM as SQLConnection
 import json
 
 connections_bp = Blueprint('connections', __name__)
 
 @connections_bp.route('/api/connections', methods=['GET'])
 def get_connections():
-    """Obtiene todas las conexiones"""
+    """Obtiene conexiones con paginación"""
     try:
-        connections = Connection.get_all()
-        return jsonify([conn.to_dict() for conn in connections])
+        # Extract pagination parameters
+        page, per_page = PaginationHelper.get_pagination_params(
+            request.args, 
+            default_per_page=20, 
+            max_per_page=100
+        )
+        
+        # Try SQLAlchemy approach first
+        try:
+            with get_db_session() as session:
+                query = session.query(SQLConnection)
+                
+                # Apply filters if provided
+                search = request.args.get('search', '').strip()
+                if search:
+                    query = query.filter(
+                        SQLConnection.name.contains(search) |
+                        SQLConnection.type.contains(search) |
+                        SQLConnection.host.contains(search)
+                    )
+                
+                connection_type = request.args.get('type', '').strip()
+                if connection_type:
+                    query = query.filter(SQLConnection.type == connection_type)
+                
+                is_active = request.args.get('active')
+                if is_active is not None:
+                    active_bool = is_active.lower() in ('true', '1', 'yes')
+                    query = query.filter(SQLConnection.is_active == active_bool)
+                
+                # Apply pagination
+                result = PaginationHelper.paginate(query, page, per_page)
+                return jsonify(result)
+                
+        except Exception as sql_error:
+            # Fallback to legacy approach
+            connections = Connection.get_all()
+            
+            # Apply search filter
+            search = request.args.get('search', '').strip().lower()
+            if search:
+                connections = [c for c in connections if (
+                    search in c.name.lower() or
+                    search in c.type.lower() or
+                    search in c.host.lower()
+                )]
+            
+            # Apply type filter
+            connection_type = request.args.get('type', '').strip()
+            if connection_type:
+                connections = [c for c in connections if c.type == connection_type]
+            
+            # Apply active filter
+            is_active = request.args.get('active')
+            if is_active is not None:
+                active_bool = is_active.lower() in ('true', '1', 'yes')
+                connections = [c for c in connections if c.is_active == active_bool]
+            
+            # Manual pagination for legacy approach
+            total = len(connections)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_connections = connections[start_idx:end_idx]
+            
+            return jsonify(PaginationHelper.create_pagination_response(
+                items=[conn.to_dict() for conn in paginated_connections],
+                total=total,
+                page=page,
+                per_page=per_page
+            ))
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
