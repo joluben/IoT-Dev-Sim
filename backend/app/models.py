@@ -355,7 +355,18 @@ class EncryptionManager:
         self.cipher = Fernet(self.key)
     
     def _get_or_create_key(self):
-        """Obtiene o crea la clave de encriptación"""
+        """Obtiene o crea la clave de encriptación.
+        Prioriza ENCRYPTION_KEY desde variables de entorno (base64 de Fernet).
+        Fallback a archivo local para desarrollo.
+        """
+        env_key = os.environ.get('ENCRYPTION_KEY')
+        if env_key:
+            # Asumimos que es una clave Fernet válida (base64 urlsafe de 32 bytes)
+            try:
+                return env_key.encode()
+            except Exception:
+                pass  # Fallback a archivo
+        
         key_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'encryption.key')
         
         if os.path.exists(key_path):
@@ -526,8 +537,23 @@ class Connection:
         }
         
         if include_sensitive:
+            # Solo en contextos autorizados: devolver desencriptado
             result['auth_config'] = self.get_decrypted_auth_config()
-        
+        else:
+            # Proveer información enmascarada para UI sin exponer secretos
+            if self.auth_config:
+                try:
+                    raw_cfg = json.loads(self.auth_config)
+                    masked = {}
+                    for k, v in (raw_cfg.items() if isinstance(raw_cfg, dict) else []):
+                        if k in ['password', 'token', 'key'] and v:
+                            masked[k] = '••••••'
+                        else:
+                            masked[k] = v if isinstance(v, (bool, int)) else (v if v is None else '••••')
+                    result['auth_config_masked'] = masked
+                except Exception:
+                    result['auth_config_masked'] = {'masked': True}
+
         if self.connection_config:
             result['connection_config'] = json.loads(self.connection_config)
         

@@ -64,3 +64,6 @@ Thumbs.db
 
 #Windsurf folder
 /.windsurf
+
+# Security: encryption keys (do not commit)
+data/encryption.key

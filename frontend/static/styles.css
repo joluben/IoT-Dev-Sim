@@ -986,7 +986,7 @@ header p {
     color: #27ae60;
 }
 
-.connection-type.https {
+.connection-type.http {
     background: #e3f2fd;
     color: #2196f3;
 }

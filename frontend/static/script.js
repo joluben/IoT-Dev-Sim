@@ -2145,8 +2145,9 @@ function showAdvancedFields(type) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="mqtt-ssl">
-                        <input type="checkbox" id="mqtt-ssl" name="ssl"> Usar SSL/TLS
+                    <label class=checkbox-label for="mqtt-ssl">
+                        <input type="checkbox" id="mqtt-ssl" name="ssl"> 
+                        <span>Usar SSL/TLS</span>
                     </label>
                 </div>
             </div>

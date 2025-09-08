@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+import os
 from ..models import Connection, ConnectionTest
 from ..connection_clients import ConnectionClientFactory
 from ..pagination import PaginationHelper
@@ -131,7 +132,13 @@ def get_connection(connection_id):
         if not connection:
             return jsonify({'error': 'Conexión no encontrada'}), 404
         
-        return jsonify(connection.to_dict(include_sensitive=True))
+        # Safe default: do NOT expose sensitive data.
+        # Allow only if both env flag and query param are set (intencional for dev-only use).
+        allow_sensitive = os.environ.get('ALLOW_SENSITIVE_CONNECTIONS', '').lower() in ('1', 'true', 'yes')
+        include_sensitive_param = request.args.get('include_sensitive', 'false').lower() in ('1', 'true', 'yes')
+        include_sensitive = allow_sensitive and include_sensitive_param
+        
+        return jsonify(connection.to_dict(include_sensitive=include_sensitive))
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
