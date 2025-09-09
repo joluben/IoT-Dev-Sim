@@ -66,4 +66,7 @@ Thumbs.db
 /.windsurf
 
 # Security: encryption keys (do not commit)
-data/encryption.key
+data/
+
+# Personal Folders
+/UI example
