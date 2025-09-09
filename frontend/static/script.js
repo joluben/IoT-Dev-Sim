@@ -51,6 +51,17 @@ const elements = {
     notifications: document.getElementById('notifications')
 };
 
+// Helper to consistently extract array data from paginated or legacy API responses
+function normalizePaginatedData(response) {
+    if (!response) return [];
+    if (Array.isArray(response)) return response; // Is already an array
+    if (response.items && Array.isArray(response.items)) return response.items; // New paginated format
+    if (response.connections && Array.isArray(response.connections)) return response.connections; // Old paginated format
+    if (response.devices && Array.isArray(response.devices)) return response.devices; // Devices paginated format
+    if (response.projects && Array.isArray(response.projects)) return response.projects; // Projects paginated format
+    return []; // Return empty array if no data found
+}
+
 // API Functions
 const API = {
     async createDevice(data) {
@@ -383,10 +394,13 @@ function showNotification(message, type = 'info') {
 // Transmit modal functions (manual transmission)
 async function showTransmitModal() {
     try {
-        const connections = await API.getConnections();
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const activeConnections = connections.filter(conn => conn.is_active);
+        
         const selector = document.getElementById('transmit-connections-selector');
         if (!selector) return;
+
         if (activeConnections.length === 0) {
             selector.innerHTML = '<div class="loading">No hay conexiones activas</div>';
         } else {
@@ -708,6 +722,16 @@ async function showProjectDetail(projectId) {
         
         // Load connections for selector
         await loadProjectConnectionSelector();
+        // Persist selection on change so it restores next time
+        const projConnSel = document.getElementById('project-connection-selector');
+        if (projConnSel) {
+            projConnSel.addEventListener('change', (e) => {
+                if (!currentProject) return;
+                const key = `project_last_connection_${currentProject.id}`;
+                const val = e.target.value;
+                if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
+            });
+        }
         
         // Load transmission history
         await loadProjectTransmissionHistory(projectId);
@@ -822,17 +846,31 @@ async function loadProjectConnectionSelector() {
     try {
         const selector = document.getElementById('project-connection-selector');
         if (!selector) return;
-        
-        const connections = await API.getConnections();
+
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const activeConnections = connections.filter(conn => conn.is_active);
-        
+
         selector.innerHTML = '<option value="">Usar conexión de cada dispositivo</option>' +
             activeConnections.map(conn => 
                 `<option value="${conn.id}">${conn.name} (${getConnectionDisplayLabel(conn)})</option>`
             ).join('');
-            
+        
+        // Restore last selected connection for this project (UI preference)
+        if (window.currentProject && currentProject.id) {
+            const key = `project_last_connection_${currentProject.id}`;
+            const last = localStorage.getItem(key);
+            if (last && selector.querySelector(`option[value="${last}"]`)) {
+                selector.value = last;
+            }
+        }
+
     } catch (error) {
-        // Error loading connections for project
+        console.error('Error loading connections for project selector:', error);
+        const selector = document.getElementById('project-connection-selector');
+        if (selector) {
+            selector.innerHTML = '<option value="">Usar conexión de cada dispositivo</option>';
+        }
     }
 }
 
@@ -845,6 +883,10 @@ async function startProjectTransmission() {
         
         showNotification('Iniciando transmisiones del proyecto...', 'info');
         
+        // Persist user preference for next visits
+        const key = `project_last_connection_${currentProject.id}`;
+        if (connectionId) localStorage.setItem(key, connectionId); else localStorage.removeItem(key);
+
         const result = await API.startProjectTransmission(currentProject.id, connectionId);
         
         showOperationResults('Iniciar Transmisiones', result);
@@ -1378,6 +1420,32 @@ async function viewDevice(deviceId) {
         }, 100);
         
         showView('deviceDetail');
+        // Ensure transmission connections are populated once view is visible
+        requestAnimationFrame(async () => {
+            try {
+                await loadTransmissionConnections();
+                // After loading, re-apply the saved selection
+                const selectedId = currentDevice.selected_connection_id || localStorage.getItem(`device_last_connection_${deviceId}`);
+                if (selectedId) {
+                    const selector = document.getElementById('transmission-connection');
+                    if (selector && selector.querySelector(`option[value="${selectedId}"]`)) {
+                        selector.value = selectedId;
+                    }
+                }
+            } catch (e) {
+                console.error('Post-view connections load failed:', e);
+            }
+        });
+
+        // Attach change listener to persist user selection for this device
+        const connSel = document.getElementById('transmission-connection');
+        if (connSel) {
+            connSel.addEventListener('change', (e) => {
+                const val = e.target.value;
+                const key = `device_last_connection_${deviceId}`;
+                if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
+            });
+        }
     } catch (error) {
         showNotification('Error al cargar dispositivo: ' + error.message, 'error');
     }
@@ -2448,15 +2516,18 @@ async function showSendDataModal() {
     }
     
     try {
-        const connections = await API.getConnections();
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const activeConnections = connections.filter(conn => conn.is_active);
         
         if (activeConnections.length === 0) {
             showNotification('No hay conexiones activas disponibles', 'warning');
             return;
         }
+
         const selector = document.getElementById('connections-selector');
         if (!selector) return;
+
         selector.innerHTML = activeConnections.map(conn => `
             <div class="connection-option" onclick="selectConnection(${conn.id})">
                 <input type="radio" name="connection" value="${conn.id}" id="conn-${conn.id}">
@@ -2466,7 +2537,8 @@ async function showSendDataModal() {
                 </div>
             </div>
         `).join('');
-        // Show data preview
+        
+        document.getElementById('send-data-modal').classList.add('active');
         const preview = document.getElementById('send-data-preview');
         if (preview) preview.textContent = JSON.stringify(currentDevice.csv_data, null, 2);
         document.getElementById('send-data-modal').classList.add('active');
@@ -2554,6 +2626,14 @@ async function loadTransmissionConfig(deviceId) {
             if (connectionSelector) {
                 connectionSelector.value = String(selectedId);
             }
+        } else {
+            // Fallback to last selected in this browser
+            const key = `device_last_connection_${deviceId}`;
+            const last = localStorage.getItem(key);
+            const connectionSelector = document.getElementById('transmission-connection');
+            if (connectionSelector && last && connectionSelector.querySelector(`option[value="${last}"]`)) {
+                connectionSelector.value = last;
+            }
         }
         
     } catch (error) {
@@ -2587,6 +2667,10 @@ async function saveTransmissionConfig() {
             currentDevice = updatedDevice;
             showNotification('✅ Configuración guardada correctamente', 'success');
             
+            // Persist user selection locally as a UI preference
+            const persistKey = `device_last_connection_${currentDevice.id}`;
+            if (connectionId) localStorage.setItem(persistKey, connectionId); else localStorage.removeItem(persistKey);
+
             // Update sensor controls visibility
             const sensorControls = document.getElementById('sensor-controls');
             if (deviceType === 'Sensor') {
@@ -2655,23 +2739,31 @@ function updateTransmissionStatusIndicator(device) {
 // Load connections into transmission selector
 async function loadTransmissionConnections() {
     try {
-        const response = await fetch(`${API_BASE}/connections`);
-        if (response.ok) {
-            const connections = await response.json();
-            const selector = document.getElementById('transmission-connection');
-            
-            // Clear existing options except the first one
-            selector.innerHTML = '<option value="">Seleccionar conexión...</option>';
-            
-            connections.forEach(conn => {
+        const response = await API.getConnections(1, 1000); // Fetch all connections
+        const connections = normalizePaginatedData(response);
+        const selector = document.getElementById('transmission-connection');
+        
+        if (!selector) return;
+
+        const currentVal = selector.value;
+        selector.innerHTML = '<option value="">Seleccionar conexión...</option>';
+        
+        connections
+            .filter(c => c.is_active)
+            .forEach(conn => {
                 const option = document.createElement('option');
                 option.value = conn.id;
                 option.textContent = `${conn.name} (${getConnectionDisplayLabel(conn)})`;
                 selector.appendChild(option);
             });
+        
+        // Restore previous selection if it still exists
+        if (selector.querySelector(`option[value="${currentVal}"]`)) {
+            selector.value = currentVal;
         }
+
     } catch (error) {
-        console.error('Error loading connections:', error);
+        console.error('Error loading connections for transmission selector:', error);
     }
 }
 
@@ -2927,7 +3019,8 @@ function initializeHistoryFilters() {
 
 async function loadConnectionsForFilter() {
     try {
-        const connections = await API.getConnections();
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const connectionFilter = document.getElementById('history-filter-connection');
         
         if (connectionFilter && connections) {
@@ -2935,7 +3028,7 @@ async function loadConnectionsForFilter() {
                 connections.map(conn => `<option value="${conn.id}">${conn.name}</option>`).join('');
         }
     } catch (error) {
-        // Error loading connections for filter
+        console.error('Error loading connections for filter:', error);
     }
 }
 

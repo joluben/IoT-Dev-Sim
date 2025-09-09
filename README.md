@@ -2,6 +2,9 @@
 
 Aplicación web para gestión de dispositivos con importación y procesamiento de archivos CSV.
 
+![Listado de dispositivos](./screenshots/image%20devices.jpg)
+![Listado de conexiones](./screenshots/image%20connections.jpg)
+
 ## Características
 
 - **Gestión integral**: Dispositivos, Proyectos y Conexiones con CRUD completo
