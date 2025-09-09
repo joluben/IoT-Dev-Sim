@@ -635,6 +635,7 @@ async function loadProjects(page = 1, perPage = 20, search = '', active = null, 
                     <p class="project-description">${project.description || 'Sin descripción'}</p>
                     <div class="project-stats">
                         <span class="device-count">📱 ${project.devices_count} dispositivos</span>
+                    </div>    
                 </div>
                 <div class="project-actions">
                     <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ ${window.i18n.t('common.actions.edit')}</button>
