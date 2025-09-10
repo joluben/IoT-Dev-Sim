@@ -17,6 +17,7 @@ Aplicación web para gestión de dispositivos con importación y procesamiento d
 - **i18n**: Traducciones ES/EN servidas desde `frontend/locales/`
 - **Tiempo real básico**: Canal WebSocket (`/ws/transmissions`) para estado de conexión
 - **Persistencia**: SQLite para datos y scheduler; volúmenes Docker para durabilidad
+- **Integración con Keycloak**: Autenticación y autorización con Keycloak
 
 ## Stack Tecnológico
 

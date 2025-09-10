@@ -59,5 +59,25 @@
     "updated_at": "Updated at",
     "no_data": "No data available",
     "loading_error": "Error loading data"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "login_with_keycloak": "Login with Keycloak",
+    "unauthorized": "Unauthorized",
+    "session_expired": "Session expired",
+    "authentication_required": "Authentication required",
+    "login_success": "Login successful",
+    "logout_success": "Logout successful",
+    "login_failed": "Login failed",
+    "token_expired": "Token expired",
+    "invalid_credentials": "Invalid credentials",
+    "access_denied": "Access denied",
+    "authentication_error": "Authentication error",
+    "redirecting_to_login": "Redirecting to login...",
+    "processing_login": "Processing login...",
+    "user_info": "User information",
+    "role": "Role",
+    "permissions": "Permissions"
   }
 }

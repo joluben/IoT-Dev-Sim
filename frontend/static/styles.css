@@ -748,6 +748,98 @@ header p {
     border-top: 1px solid var(--border);
 }
 
+/* Authentication Section */
+.auth-section {
+    padding: 14px 8px 16px 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: var(--panel-elev);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-role {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: capitalize;
+}
+
+.logout-button {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.logout-button:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+}
+
+/* Auth actions row: logout + language selector side-by-side */
+.auth-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.auth-actions .logout-button,
+.auth-actions .language-btn {
+    flex: 1 1 50%;
+    width: auto; /* override full-width buttons */
+}
+
+/* Language Selector */
+.language-selector {
+    padding: 12px 8px 0 8px;
+    border-top: 1px solid var(--border);
+}
+
 /* Responsive adjustments for projects grid */
 @media (max-width: 768px) {
     .projects-grid,

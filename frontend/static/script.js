@@ -3442,7 +3442,26 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Setup language selector
         initializeLanguageSelector();
         
-        // Initialize the rest of the application
+        // Initialize authentication first
+        initializeAuthentication();
+        
+        // Wait for Keycloak to initialize before loading data
+        if (window.keycloakAuth && window.keycloakAuth.config?.enabled) {
+            // Wait for authentication to be ready
+            await new Promise(resolve => {
+                const checkAuth = () => {
+                    if (window.keycloakAuth.isAuthenticated() || !window.keycloakAuth.config?.enabled) {
+                        resolve();
+                    } else {
+                        // Check if we need to redirect to login
+                        setTimeout(checkAuth, 100);
+                    }
+                };
+                checkAuth();
+            });
+        }
+        
+        // Initialize the rest of the application only after auth is ready
         await initializeApp();
         
         console.log('✅ Device Simulator initialized successfully');
@@ -3576,8 +3595,71 @@ function initializePagination() {
     });
 }
 
+// Initialize authentication system
+function initializeAuthentication() {
+    // Listen for authentication success events
+    window.addEventListener('keycloak-auth-success', (event) => {
+        console.log('🔐 Authentication successful:', event.detail.user);
+        updateAuthenticationUI();
+    });
+    
+    // Setup logout button
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
+            if (window.keycloakAuth) {
+                window.keycloakAuth.logout();
+            }
+        });
+    }
+    
+    // Show auth section if authentication is enabled
+    if (window.keycloakAuth && window.keycloakAuth.config?.enabled) {
+        const authSection = document.getElementById('auth-section');
+        if (authSection) {
+            authSection.style.display = 'block';
+        }
+        updateAuthenticationUI();
+    }
+}
+
+// Update authentication UI elements
+function updateAuthenticationUI() {
+    if (!window.keycloakAuth || !window.keycloakAuth.config?.enabled) {
+        return;
+    }
+    
+    const authSection = document.getElementById('auth-section');
+    const userInfo = document.getElementById('user-info');
+    const logoutButton = document.getElementById('logout-button');
+    
+    if (window.keycloakAuth.isAuthenticated()) {
+        const user = window.keycloakAuth.getCurrentUser();
+        
+        if (authSection) authSection.style.display = 'block';
+        
+        if (userInfo && user) {
+            userInfo.innerHTML = `
+                <div class="user-avatar">👤</div>
+                <div class="user-details">
+                    <div class="user-name">${user.username || user.email || 'Usuario'}</div>
+                    <div class="user-role">${user.roles?.[0] || 'user'}</div>
+                </div>
+            `;
+        }
+        
+        if (logoutButton) logoutButton.style.display = 'block';
+    } else {
+        if (authSection) authSection.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'none';
+    }
+}
+
 // Initialize the main application
 async function initializeApp() {
+    // Initialize authentication first
+    initializeAuthentication();
+    
     // Initialize sidebar navigation
     initializeDefaultNavigation();
     

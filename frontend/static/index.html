@@ -27,6 +27,16 @@
                 </nav>
             </div>
             
+            <!-- User Authentication Section -->
+            <div class="auth-section" id="auth-section" style="display: none;">
+                <div class="user-info" id="user-info">
+                    <!-- User info will be populated by keycloak-auth.js -->
+                </div>
+                <button id="logout-button" class="logout-button btn btn-secondary" style="display: none;">
+                    <span data-i18n="common.auth.logout">Salir</span>
+                </button>
+            </div>
+            
             <!-- Selector de Idioma -->
             <div class="language-selector">
                 <button id="language-selector" class="language-btn" title="Cambiar idioma" data-i18n-title="common.language.switch_to">
@@ -833,6 +843,7 @@
     <script src="pagination.js"></script>
     <script src="transmission-api.js"></script>
     <script src="realtime.js"></script>
+    <script src="keycloak-auth.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

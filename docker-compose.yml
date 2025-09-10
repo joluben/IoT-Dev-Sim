@@ -1,4 +1,34 @@
 services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.1
+    container_name: devsim-keycloak
+    ports:
+      - "8080:8080"
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      - KC_DB=h2
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_HTTP_ENABLED=true
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-config:/opt/keycloak/data/import:ro
+    command: 
+      - start-dev
+      - --import-realm
+    networks:
+      - devsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: http://localhost\r\nConnection: close\r\n\r\n' >&3;grep -q '200 OK' <&3"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   backend:
     build: ./backend
     container_name: devsim-backend
@@ -21,6 +51,14 @@ services:
       # Authentication Configuration
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - AUTHENTICATION_ENABLED=${AUTHENTICATION_ENABLED:-false}
+      # Keycloak Configuration
+      - KEYCLOAK_ENABLED=${KEYCLOAK_ENABLED:-false}
+      - KEYCLOAK_SERVER_URL=${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-devsim}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-devsim-app}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # Secret Management Configuration
       - USE_DOCKER_SECRETS=${USE_DOCKER_SECRETS:-false}
       - SECRET_ENV_PREFIX=${SECRET_ENV_PREFIX:-DEVSIM_}
@@ -40,6 +78,9 @@ services:
     networks:
       - devsim-network
     restart: unless-stopped
+    depends_on:
+      keycloak:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
@@ -66,6 +107,8 @@ volumes:
   devsim-data:
     driver: local
   devsim-uploads:
+    driver: local
+  keycloak-data:
     driver: local
 
 # Docker Secrets for production deployment

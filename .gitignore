@@ -51,6 +51,9 @@ uploads/
 # Allow localization files
 !frontend/locales/**/*.json
 
+# Allow Keycloak configuration files
+!keycloak/realm-config/*.json
+
 # Logs
 *.log
 logs/
@@ -72,3 +75,4 @@ Thumbs.db
 # Personal Folders
 /UI example
 /ignore files
+/keycloak

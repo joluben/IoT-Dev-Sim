@@ -13,9 +13,11 @@ from .routes.transmissions import transmissions_bp
 from .routes.projects import projects_bp
 from .routes.security import security_bp
 from .routes.health import health_bp
+from .routes.auth_routes import auth_bp
 from .scheduler import init_scheduler
 from .secrets_mgmt.secret_manager import get_secret_manager
 from .startup_validation import validate_startup_configuration
+from .middleware.auth_middleware import create_auth_middleware
 
 def create_app():
     # Load environment variables from .env for local development
@@ -74,6 +76,9 @@ def create_app():
     # Detener scheduler al finalizar el proceso (apagado limpio)
     atexit.register(lambda: hasattr(app, 'scheduler') and app.scheduler and app.scheduler.shutdown())
     
+    # Initialize authentication middleware
+    create_auth_middleware(app)
+    
     # Registrar blueprints
     app.register_blueprint(devices_bp, url_prefix='/api')
     app.register_blueprint(upload_bp, url_prefix='/api')
@@ -82,6 +87,7 @@ def create_app():
     app.register_blueprint(projects_bp)
     app.register_blueprint(security_bp)
     app.register_blueprint(health_bp)
+    app.register_blueprint(auth_bp)
 
     # Depuración: listar rutas registradas al iniciar la app
     try:
