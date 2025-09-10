@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from ..security import get_secret_manager, rotate_encryption_keys
+from ..secrets_mgmt.secret_manager import get_secret_manager
 import logging
 
 security_bp = Blueprint('security', __name__)

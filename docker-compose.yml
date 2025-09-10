@@ -7,13 +7,45 @@ services:
     volumes:
       - ./data:/app/data
       - ./backend/uploads:/app/uploads
+      # Mount secrets directory for secure key storage
+      - ./data/secrets:/app/data/secrets:ro
+      - ./data/keys:/app/data/keys:ro
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-production}
       - FLASK_APP=run.py
-      - DATABASE_URL=sqlite:////app/data/scheduler_jobs.db
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/scheduler_jobs.db}
+      # Security Configuration
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - ENCRYPTION_KEY_VERSION=${ENCRYPTION_KEY_VERSION:-1}
+      # Authentication Configuration
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AUTHENTICATION_ENABLED=${AUTHENTICATION_ENABLED:-false}
+      # Secret Management Configuration
+      - USE_DOCKER_SECRETS=${USE_DOCKER_SECRETS:-false}
+      - SECRET_ENV_PREFIX=${SECRET_ENV_PREFIX:-DEVSIM_}
+      - ENCRYPTION_KEY_STORAGE_PATH=/app/data/keys
+      - SECRETS_STORAGE_DIR=/app/data/secrets
+      # Upload Configuration
+      - MAX_CONTENT_LENGTH=${MAX_CONTENT_LENGTH:-10485760}
+      - UPLOAD_FOLDER=${UPLOAD_FOLDER:-/app/uploads}
+      # Development Settings
+      - ALLOW_SENSITIVE_CONNECTIONS=${ALLOW_SENSITIVE_CONNECTIONS:-false}
+    env_file:
+      - .env
+    secrets:
+      - encryption_key
+      - jwt_secret
+      - db_password
     networks:
       - devsim-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build: ./frontend
@@ -35,3 +67,12 @@ volumes:
     driver: local
   devsim-uploads:
     driver: local
+
+# Docker Secrets for production deployment
+secrets:
+  encryption_key:
+    file: ./secrets/encryption_key.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  db_password:
+    file: ./secrets/db_password.txt

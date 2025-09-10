@@ -7,7 +7,8 @@ import os
 import base64
 from .database import execute_query, execute_insert
 from .orm_adapter import DeviceORMAdapter, ConnectionORMAdapter, ProjectORMAdapter, TransmissionORMAdapter
-from .security import get_secret_manager, encrypt_credential, decrypt_credential
+from .secrets_mgmt.secret_manager import get_secret_manager
+from .secrets_mgmt import encrypt_credential, decrypt_credential
 
 class Device:
     DEVICE_TYPES = ['WebApp', 'Sensor']
