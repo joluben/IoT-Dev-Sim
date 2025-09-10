@@ -9,7 +9,9 @@ from .routes.upload import upload_bp
 from .routes.connections import connections_bp
 from .routes.transmissions import transmissions_bp
 from .routes.projects import projects_bp
+from .routes.security import security_bp
 from .scheduler import init_scheduler
+from .security import get_secret_manager
 
 def create_app():
     app = Flask(__name__)
@@ -29,6 +31,14 @@ def create_app():
     # Inicializar base de datos
     init_db()
     
+    # Initialize SecretManager early to ensure encryption system is ready
+    try:
+        secret_manager = get_secret_manager()
+        app.logger.info("SecretManager initialized successfully")
+    except Exception as e:
+        app.logger.error(f"Failed to initialize SecretManager: {e}")
+        raise RuntimeError("Critical security error: Cannot start without encryption system")
+    
     # Configurar scheduler
     scheduler = init_scheduler(app)
     app.scheduler = scheduler
@@ -47,6 +57,7 @@ def create_app():
     app.register_blueprint(connections_bp)
     app.register_blueprint(transmissions_bp)
     app.register_blueprint(projects_bp)
+    app.register_blueprint(security_bp)
 
     # Depuración: listar rutas registradas al iniciar la app
     try:

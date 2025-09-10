@@ -62,11 +62,13 @@ logs/
 .DS_Store
 Thumbs.db
 
-#Windsurf folder
+# Folders
 /.windsurf
+/.kiro
 
 # Security: encryption keys (do not commit)
 /data
 
 # Personal Folders
 /UI example
+/gitignore files
