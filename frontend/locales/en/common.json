@@ -1,0 +1,83 @@
+{
+  "app": {
+    "title": "Device Manager",
+    "subtitle": "IoT Data Transmission Platform"
+  },
+  "navigation": {
+    "devices": "Devices",
+    "connections": "Connections",
+    "projects": "Projects",
+    "dashboard": "Dashboard"
+  },
+  "actions": {
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "view_details": "Details",
+    "duplicate": "Duplicate",
+    "new": "New",
+    "close": "Close"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning"
+  },
+  "language": {
+    "current": "English",
+    "switch_to": "Switch to Spanish",
+    "label": "Language"
+  },
+  "pagination": {
+    "prev": "Previous",
+    "next": "Next",
+    "per_page": "Items per page:",
+    "showing": "Showing {{start}}-{{end}} of {{total}} items",
+    "empty": "No items to display",
+    "loading_more": "Loading more items..."
+  },
+  "operations": {
+    "result_title": "Operation Result"
+  },
+  "common": {
+    "name": "Name",
+    "description": "Description",
+    "reference": "Reference",
+    "type": "Type",
+    "created_at": "Created at",
+    "updated_at": "Updated at",
+    "no_data": "No data available",
+    "loading_error": "Error loading data"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "login_with_keycloak": "Login with Keycloak",
+    "unauthorized": "Unauthorized",
+    "session_expired": "Session expired",
+    "authentication_required": "Authentication required",
+    "login_success": "Login successful",
+    "logout_success": "Logout successful",
+    "login_failed": "Login failed",
+    "token_expired": "Token expired",
+    "invalid_credentials": "Invalid credentials",
+    "access_denied": "Access denied",
+    "authentication_error": "Authentication error",
+    "redirecting_to_login": "Redirecting to login...",
+    "processing_login": "Processing login...",
+    "user_info": "User information",
+    "role": "Role",
+    "permissions": "Permissions"
+  }
+}

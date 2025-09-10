@@ -8,6 +8,7 @@ const API_BASE = window.location.hostname === 'localhost' && window.location.por
 // Global variables
 let devices = [];
 let connections = [];
+let projects = [];
 let currentDevice = null;
 let currentConnection = null;
 let currentProject = null;
@@ -18,6 +19,11 @@ let editingConnection = null;
 let lastTransmissionHistory = [];
 let lastProjectTransmissionHistory = [];
 let websocket = null;
+
+// Pagination components
+let devicesPagination = null;
+let connectionsPagination = null;
+let projectsPagination = null;
 
 // DOM Elements
 const views = {
@@ -45,6 +51,17 @@ const elements = {
     notifications: document.getElementById('notifications')
 };
 
+// Helper to consistently extract array data from paginated or legacy API responses
+function normalizePaginatedData(response) {
+    if (!response) return [];
+    if (Array.isArray(response)) return response; // Is already an array
+    if (response.items && Array.isArray(response.items)) return response.items; // New paginated format
+    if (response.connections && Array.isArray(response.connections)) return response.connections; // Old paginated format
+    if (response.devices && Array.isArray(response.devices)) return response.devices; // Devices paginated format
+    if (response.projects && Array.isArray(response.projects)) return response.projects; // Projects paginated format
+    return []; // Return empty array if no data found
+}
+
 // API Functions
 const API = {
     async createDevice(data) {
@@ -56,8 +73,16 @@ const API = {
         return response.json();
     },
 
-    async getDevices() {
-        const response = await fetch(`${API_BASE}/devices`);
+    async getDevices(page = 1, perPage = 20, search = '', type = '') {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: perPage.toString()
+        });
+        
+        if (search) params.append('search', search);
+        if (type) params.append('type', type);
+        
+        const response = await fetch(`${API_BASE}/devices?${params}`);
         return response.json();
     },
 
@@ -87,8 +112,17 @@ const API = {
     },
 
     // Connections API
-    async getConnections() {
-        const response = await fetch(`${API_BASE}/connections`);
+    async getConnections(page = 1, perPage = 20, search = '', type = '', active = null) {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: perPage.toString()
+        });
+        
+        if (search) params.append('search', search);
+        if (type) params.append('type', type);
+        if (active !== null) params.append('active', active.toString());
+        
+        const response = await fetch(`${API_BASE}/connections?${params}`);
         return response.json();
     },
 
@@ -185,8 +219,17 @@ const API = {
     },
 
     // Project API functions
-    async getProjects() {
-        const response = await fetch(`${API_BASE}/projects`);
+    async getProjects(page = 1, perPage = 20, search = '', active = null, transmissionStatus = '') {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            per_page: perPage.toString()
+        });
+        
+        if (search) params.append('search', search);
+        if (active !== null) params.append('active', active.toString());
+        if (transmissionStatus) params.append('transmission_status', transmissionStatus);
+        
+        const response = await fetch(`${API_BASE}/projects?${params}`);
         const text = await response.text();
         let payload;
         try { payload = text ? JSON.parse(text) : []; }
@@ -309,6 +352,33 @@ const API = {
 };
 
 // Utility Functions
+
+// Helpers for connection scheme/type display
+function getHttpSchemeForConnection(conn) {
+    if (!conn || conn.type !== 'HTTPS') return null;
+    const cfg = conn.connection_config || {};
+    const host = (conn.host || '').toLowerCase();
+    // 1) Respect explicit scheme in host
+    if (host.startsWith('http://')) return 'http';
+    if (host.startsWith('https://')) return 'https';
+    // 2) Respect explicit ssl flag
+    if (Object.prototype.hasOwnProperty.call(cfg, 'ssl')) {
+        return cfg.ssl ? 'https' : 'http';
+    }
+    // 3) Infer by port
+    if (conn.port != null) {
+        return Number(conn.port) === 443 ? 'https' : 'http';
+    }
+    // 4) Default
+    return 'http';
+}
+
+function getConnectionDisplayLabel(conn) {
+    if (conn.type === 'MQTT') return 'MQTT';
+    const scheme = getHttpSchemeForConnection(conn);
+    return scheme === 'https' ? 'HTTPS' : 'HTTP';
+}
+
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -324,10 +394,13 @@ function showNotification(message, type = 'info') {
 // Transmit modal functions (manual transmission)
 async function showTransmitModal() {
     try {
-        const connections = await API.getConnections();
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const activeConnections = connections.filter(conn => conn.is_active);
+        
         const selector = document.getElementById('transmit-connections-selector');
         if (!selector) return;
+
         if (activeConnections.length === 0) {
             selector.innerHTML = '<div class="loading">No hay conexiones activas</div>';
         } else {
@@ -336,7 +409,7 @@ async function showTransmitModal() {
                     <input type="radio" name="tx_connection" value="${conn.id}" id="tx-conn-${conn.id}">
                     <div class="connection-option-info">
                         <div class="connection-option-name">${conn.name}</div>
-                        <div class="connection-option-details">${conn.type} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
+                        <div class="connection-option-details">${getConnectionDisplayLabel(conn)} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
                     </div>
                 </div>
             `).join('');
@@ -516,25 +589,41 @@ function attachHistoryFilterListeners() {
 // ============================================================================
 
 // Project navigation and loading
-async function loadProjects() {
+async function loadProjects(page = 1, perPage = 20, search = '', active = null, transmissionStatus = '') {
     try {
         const projectsGrid = document.getElementById('projects-grid');
         if (!projectsGrid) return;
         
         projectsGrid.innerHTML = '<div class="loading">Cargando proyectos...</div>';
         
-        const projects = await API.getProjects();
-        if (!Array.isArray(projects)) {
-            const errMsg = projects && projects.error ? projects.error : 'Respuesta inesperada al cargar proyectos';
+        // Get paginated projects data
+        const response = await API.getProjects(page, perPage, search, active, transmissionStatus);
+        
+        // Handle both paginated and legacy response formats
+        let projectsData;
+        if (response.items) {
+            // Paginated response
+            projectsData = response.items;
+            
+            // Update pagination component
+            if (projectsPagination) {
+                projectsPagination.update(response.pagination || response);
+                projectsPagination.setLoading(false);
+            }
+        } else if (Array.isArray(response)) {
+            // Legacy response format
+            projectsData = response;
+        } else {
+            const errMsg = response && response.error ? response.error : 'Respuesta inesperada al cargar proyectos';
             throw new Error(errMsg);
         }
         
-        if (projects.length === 0) {
+        if (projectsData.length === 0) {
             projectsGrid.innerHTML = '<div class="empty-state">No hay proyectos creados</div>';
             return;
         }
         
-        projectsGrid.innerHTML = projects.map(project => `
+        projectsGrid.innerHTML = projectsData.map(project => `
             <div class="project-card" onclick="showProjectDetail(${project.id})">
                 <div class="project-header">
                     <h3>${project.name}</h3>
@@ -546,18 +635,17 @@ async function loadProjects() {
                     <p class="project-description">${project.description || 'Sin descripción'}</p>
                     <div class="project-stats">
                         <span class="device-count">📱 ${project.devices_count} dispositivos</span>
-                        <span class="created-date">📅 ${formatDate(project.created_at)}</span>
-                    </div>
+                    </div>    
                 </div>
                 <div class="project-actions">
-                    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ Editar</button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(${project.id})">🗑️ Eliminar</button>
+                    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ ${window.i18n.t('common.actions.edit')}</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(${project.id})">🗑️ ${window.i18n.t('common.actions.delete')}</button>
                 </div>
             </div>
         `).join('');
         
     } catch (error) {
-        console.error('Error loading projects:', error);
+        // Error loading projects
         const projectsGrid = document.getElementById('projects-grid');
         if (projectsGrid) {
             projectsGrid.innerHTML = '<div class="error">Error cargando proyectos</div>';
@@ -583,32 +671,47 @@ async function showProjectDetail(projectId) {
             return;
         }
         
-        // Update project info
+        // Update project header
         document.getElementById('project-detail-title').textContent = currentProject.name;
+        
+        // Update project status badge
+        const statusBadge = document.getElementById('project-status-badge');
+        if (statusBadge) {
+            const statusClass = currentProject.transmission_status.toLowerCase();
+            statusBadge.className = `project-status ${statusClass}`;
+            statusBadge.textContent = getTransmissionStatusText(currentProject.transmission_status);
+        }
+        
+        // Update project statistics
+        document.getElementById('project-devices-count').textContent = currentProject.devices_count || 0;
+        document.getElementById('project-transmissions-count').textContent = currentProject.transmissions_count || 0;
+        document.getElementById('project-success-rate').textContent = currentProject.success_rate || '0%';
+        
+        // Update project info panel with new structure
         document.getElementById('project-info').innerHTML = `
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Nombre:</label>
-                    <span>${currentProject.name}</span>
-                </div>
-                <div class="info-item">
-                    <label>Descripción:</label>
-                    <span>${currentProject.description || 'Sin descripción'}</span>
-                </div>
-                <div class="info-item">
-                    <label>Estado:</label>
-                    <span class="status ${currentProject.transmission_status.toLowerCase()}">
-                        ${getTransmissionStatusText(currentProject.transmission_status)}
-                    </span>
-                </div>
-                <div class="info-item">
-                    <label>Dispositivos:</label>
-                    <span>${currentProject.devices_count}</span>
-                </div>
-                <div class="info-item">
-                    <label>Creado:</label>
-                    <span>${formatDate(currentProject.created_at)}</span>
-                </div>
+            <div class="info-item">
+                <span class="info-label">ID</span>
+                <span class="info-value">#${currentProject.id}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Nombre</span>
+                <span class="info-value">${currentProject.name}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Descripción</span>
+                <span class="info-value">${currentProject.description || 'Sin descripción'}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Estado</span>
+                <span class="info-value">${getTransmissionStatusText(currentProject.transmission_status)}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Creado</span>
+                <span class="info-value">${formatDate(currentProject.created_at)}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Última transmisión</span>
+                <span class="info-value">${currentProject.last_transmission ? formatDate(currentProject.last_transmission) : 'Nunca'}</span>
             </div>
         `;
         
@@ -620,6 +723,16 @@ async function showProjectDetail(projectId) {
         
         // Load connections for selector
         await loadProjectConnectionSelector();
+        // Persist selection on change so it restores next time
+        const projConnSel = document.getElementById('project-connection-selector');
+        if (projConnSel) {
+            projConnSel.addEventListener('change', (e) => {
+                if (!currentProject) return;
+                const key = `project_last_connection_${currentProject.id}`;
+                const val = e.target.value;
+                if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
+            });
+        }
         
         // Load transmission history
         await loadProjectTransmissionHistory(projectId);
@@ -627,7 +740,7 @@ async function showProjectDetail(projectId) {
         showView('projectDetail');
         
     } catch (error) {
-        console.error('Error loading project detail:', error);
+        // Error loading project detail
         showNotification('Error cargando detalle del proyecto', 'error');
     }
 }
@@ -705,24 +818,24 @@ async function loadProjectDevices(projectId) {
         }
         
         devicesList.innerHTML = devices.map(device => `
-            <div class="device-item">
-                <div class="device-info">
-                    <h4>${device.name}</h4>
-                    <p class="device-reference">Ref: ${device.reference}</p>
-                    <p class="device-type">Tipo: ${device.device_type}</p>
-                    <p class="device-status">
-                        Estado: ${device.transmission_enabled ? 'Habilitado' : 'Deshabilitado'}
-                    </p>
+            <div class="device-card" onclick="viewDevice(${device.id})">
+                <div class="device-card-header">
+                    <div class="device-name">${device.name}</div>
+                    <div class="device-reference">${device.reference}</div>
                 </div>
-                <div class="device-actions">
-                    <button class="btn btn-sm btn-info" onclick="showDeviceDetail(${device.id})">Ver Detalle</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">Remover</button>
+                <div class="device-status">
+                    <div class="status-indicator ${device.csv_data ? 'has-data' : 'no-data'}"></div>
+                    <span>${device.csv_data ? 'Datos cargados' : 'Sin datos CSV'}</span>
+                </div>
+                <div class="device-actions" onclick="event.stopPropagation()">
+                    <button class="btn btn-sm btn-info" onclick="viewDevice(${device.id})">${window.i18n.t('common.actions.view_details')}</button>
+                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">${window.i18n.t('projects.actions.remove_devices')}</button>
                 </div>
             </div>
         `).join('');
         
     } catch (error) {
-        console.error('Error loading project devices:', error);
+        // Error loading project devices
         const devicesList = document.getElementById('project-devices-list');
         if (devicesList) {
             devicesList.innerHTML = '<div class="error">Error cargando dispositivos</div>';
@@ -734,17 +847,31 @@ async function loadProjectConnectionSelector() {
     try {
         const selector = document.getElementById('project-connection-selector');
         if (!selector) return;
-        
-        const connections = await API.getConnections();
+
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const activeConnections = connections.filter(conn => conn.is_active);
-        
+
         selector.innerHTML = '<option value="">Usar conexión de cada dispositivo</option>' +
             activeConnections.map(conn => 
-                `<option value="${conn.id}">${conn.name} (${conn.type})</option>`
+                `<option value="${conn.id}">${conn.name} (${getConnectionDisplayLabel(conn)})</option>`
             ).join('');
-            
+        
+        // Restore last selected connection for this project (UI preference)
+        if (window.currentProject && currentProject.id) {
+            const key = `project_last_connection_${currentProject.id}`;
+            const last = localStorage.getItem(key);
+            if (last && selector.querySelector(`option[value="${last}"]`)) {
+                selector.value = last;
+            }
+        }
+
     } catch (error) {
-        console.error('Error loading connections for project:', error);
+        console.error('Error loading connections for project selector:', error);
+        const selector = document.getElementById('project-connection-selector');
+        if (selector) {
+            selector.innerHTML = '<option value="">Usar conexión de cada dispositivo</option>';
+        }
     }
 }
 
@@ -757,6 +884,10 @@ async function startProjectTransmission() {
         
         showNotification('Iniciando transmisiones del proyecto...', 'info');
         
+        // Persist user preference for next visits
+        const key = `project_last_connection_${currentProject.id}`;
+        if (connectionId) localStorage.setItem(key, connectionId); else localStorage.removeItem(key);
+
         const result = await API.startProjectTransmission(currentProject.id, connectionId);
         
         showOperationResults('Iniciar Transmisiones', result);
@@ -768,7 +899,7 @@ async function startProjectTransmission() {
         }
         
     } catch (error) {
-        console.error('Error starting project transmission:', error);
+        // Error starting project transmission
         showNotification('Error al iniciar transmisiones del proyecto', 'error');
     }
 }
@@ -789,7 +920,7 @@ async function pauseProjectTransmission() {
         }
         
     } catch (error) {
-        console.error('Error pausing project transmission:', error);
+        // Error pausing project transmission
         showNotification('Error al pausar transmisiones del proyecto', 'error');
     }
 }
@@ -810,7 +941,7 @@ async function resumeProjectTransmission() {
         }
         
     } catch (error) {
-        console.error('Error resuming project transmission:', error);
+        // Error resuming project transmission
         showNotification('Error al reanudar transmisiones del proyecto', 'error');
     }
 }
@@ -829,7 +960,7 @@ async function stopProjectTransmission() {
         updateProjectTransmissionStatus('INACTIVE');
         
     } catch (error) {
-        console.error('Error stopping project transmission:', error);
+        // Error stopping project transmission
         showNotification('Error al detener transmisiones del proyecto', 'error');
     }
 }
@@ -857,7 +988,7 @@ async function loadProjectTransmissionHistory(projectId) {
         renderProjectTransmissionHistory();
         
     } catch (error) {
-        console.error('Error loading project transmission history:', error);
+        // Error loading project transmission history
         const list = document.getElementById('project-transmission-history-list');
         if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
     }
@@ -1020,7 +1151,7 @@ async function showAddDevicesModal() {
         modal.style.display = 'block';
         
     } catch (error) {
-        console.error('Error loading unassigned devices:', error);
+        // Error loading unassigned devices
         showNotification('Error cargando dispositivos disponibles', 'error');
     }
 }
@@ -1055,7 +1186,7 @@ async function addSelectedDevicesToProject() {
         hideAddDevicesModal();
         
     } catch (error) {
-        console.error('Error adding devices to project:', error);
+        // Error adding devices to project
         showNotification('Error agregando dispositivos al proyecto', 'error');
     }
 }
@@ -1071,7 +1202,7 @@ async function removeDeviceFromProject(deviceId) {
         await loadProjectDevices(currentProject.id);
         
     } catch (error) {
-        console.error('Error removing device from project:', error);
+        // Error removing device from project
         showNotification('Error removiendo dispositivo del proyecto', 'error');
     }
 }
@@ -1195,10 +1326,30 @@ function formatDate(dateString) {
 }
 
 // Device Functions
-async function loadDevices() {
+async function loadDevices(page = 1, perPage = 20, search = '', type = '') {
     try {
         elements.devicesLoading.style.display = 'block';
-        const devices = await API.getDevices();
+        
+        // Get paginated devices data
+        const response = await API.getDevices(page, perPage, search, type);
+        
+        // Handle both paginated and legacy response formats
+        if (response.items) {
+            // Paginated response
+            devices = response.items;
+            
+            // Update pagination component
+            if (devicesPagination) {
+                devicesPagination.update(response.pagination || response);
+                devicesPagination.setLoading(false);
+            }
+        } else if (Array.isArray(response)) {
+            // Legacy response format
+            devices = response;
+        } else {
+            throw new Error('Formato de respuesta inesperado');
+        }
+        
         renderDevices(devices);
     } catch (error) {
         showNotification('Error al cargar dispositivos: ' + error.message, 'error');
@@ -1207,13 +1358,17 @@ async function loadDevices() {
     }
 }
 
-function renderDevices(devices) {
-    if (devices.length === 0) {
+function renderDevices(devicesArray) {
+    if (!devicesArray) return; // Guard clause to prevent errors if devices aren't loaded
+    // Also update global devices array when rendering
+    devices = devicesArray;
+    
+    if (devicesArray.length === 0) {
         elements.devicesGrid.innerHTML = '<div class="loading">No hay dispositivos creados</div>';
         return;
     }
 
-    elements.devicesGrid.innerHTML = devices.map(device => `
+    elements.devicesGrid.innerHTML = devicesArray.map(device => `
         <div class="device-card">
             <h3>${device.name}</h3>
             <div class="device-reference">${device.reference}</div>
@@ -1224,13 +1379,13 @@ function renderDevices(devices) {
             </div>
             <div class="device-actions">
                 <button class="btn btn-primary btn-small" onclick="viewDevice(${device.id})">
-                    Ver Detalle
+                    ${window.i18n.t('common.actions.view_details')}
                 </button>
                 <button class="btn btn-secondary btn-small" onclick="showDuplicateModal(${device.id})">
-                    Duplicar
+                    ${window.i18n.t('common.actions.duplicate')}
                 </button>
                 <button class="btn btn-danger btn-small" onclick="showDeleteModal(${device.id})">
-                    🗑️ Eliminar
+                    ${window.i18n.t('common.actions.delete')}
                 </button>
             </div>
         </div>
@@ -1259,37 +1414,96 @@ async function viewDevice(deviceId) {
         await loadTransmissionConfig(deviceId);
         await loadTransmissionHistory(deviceId);
         
+        // Initialize modern layout functionality
+        setTimeout(() => {
+            initializeUploadArea();
+            initializePreviewTabs();
+        }, 100);
+        
         showView('deviceDetail');
+        // Ensure transmission connections are populated once view is visible
+        requestAnimationFrame(async () => {
+            try {
+                await loadTransmissionConnections();
+                // After loading, re-apply the saved selection
+                const selectedId = currentDevice.selected_connection_id || localStorage.getItem(`device_last_connection_${deviceId}`);
+                if (selectedId) {
+                    const selector = document.getElementById('transmission-connection');
+                    if (selector && selector.querySelector(`option[value="${selectedId}"]`)) {
+                        selector.value = selectedId;
+                    }
+                }
+            } catch (e) {
+                console.error('Post-view connections load failed:', e);
+            }
+        });
+
+        // Attach change listener to persist user selection for this device
+        const connSel = document.getElementById('transmission-connection');
+        if (connSel) {
+            connSel.addEventListener('change', (e) => {
+                const val = e.target.value;
+                const key = `device_last_connection_${deviceId}`;
+                if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
+            });
+        }
     } catch (error) {
         showNotification('Error al cargar dispositivo: ' + error.message, 'error');
     }
 }
 
 function renderDeviceDetail(device) {
+    // Update header elements
     document.getElementById('device-detail-title').textContent = device.name;
+    document.getElementById('device-reference').textContent = device.reference;
     
+    // Update status badge
+    const statusText = device.csv_data ? 'Datos cargados' : 'Sin datos CSV';
+    const statusBadge = document.getElementById('device-status-badge');
+    const statusTextElement = document.getElementById('device-status-text');
+    
+    if (statusTextElement) {
+        statusTextElement.textContent = statusText;
+    }
+    
+    if (statusBadge) {
+        if (device.csv_data) {
+            statusBadge.style.background = 'rgba(34,197,94,0.12)';
+            statusBadge.style.color = 'var(--success)';
+            statusBadge.querySelector('.status-dot').style.background = 'var(--success)';
+        } else {
+            statusBadge.style.background = 'rgba(156,163,175,0.12)';
+            statusBadge.style.color = 'var(--muted)';
+            statusBadge.querySelector('.status-dot').style.background = 'var(--muted)';
+        }
+    }
+    
+    // Update info panel with new structure
     elements.deviceInfo.innerHTML = `
-        <div class="info-row">
-            <div class="info-label">Referencia:</div>
-            <div class="info-value">${device.reference}</div>
+        <div class="info-item">
+            <span class="info-label">Referencia</span>
+            <span class="info-value">${device.reference}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Nombre:</div>
-            <div class="info-value">${device.name}</div>
+        <div class="info-item">
+            <span class="info-label">Nombre</span>
+            <span class="info-value">${device.name}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Descripción:</div>
-            <div class="info-value">${device.description || 'Sin descripción'}</div>
+        <div class="info-item">
+            <span class="info-label">Descripción</span>
+            <span class="info-value">${device.description || 'Sin descripción'}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Creado:</div>
-            <div class="info-value">${formatDate(device.created_at)}</div>
+        <div class="info-item">
+            <span class="info-label">Creado</span>
+            <span class="info-value">${formatDate(device.created_at)}</span>
         </div>
-        <div class="info-row">
-            <div class="info-label">Estado CSV:</div>
-            <div class="info-value">${device.csv_data ? 'Datos cargados' : 'Sin datos'}</div>
+        <div class="info-item">
+            <span class="info-label">Estado CSV</span>
+            <span class="info-value">${device.csv_data ? 'Datos cargados' : 'Sin datos'}</span>
         </div>
     `;
+
+    // Initialize preview tabs functionality
+    initializePreviewTabs();
 
     // If device already has CSV data saved, render previews by default
     const sendBtn = document.getElementById('btn-send-data');
@@ -1297,16 +1511,93 @@ function renderDeviceDetail(device) {
         csvPreviewData = device.csv_data;
         // Render CSV table and JSON preview
         elements.csvPreviewTable.innerHTML = renderCSVPreview(csvPreviewData);
-        elements.jsonPreview.textContent = JSON.stringify(csvPreviewData.json_preview || [], null, 2);
+        updatePreviewContent('csv'); // Show CSV by default
         elements.previewSection.style.display = 'block';
         if (sendBtn) sendBtn.style.display = 'inline-block';
     } else {
         // Hide preview if no data
         elements.csvPreviewTable.innerHTML = '';
-        elements.jsonPreview.textContent = '';
         elements.previewSection.style.display = 'none';
         if (sendBtn) sendBtn.style.display = 'none';
     }
+}
+
+// Initialize preview tabs functionality
+function initializePreviewTabs() {
+    const tabs = document.querySelectorAll('.preview-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            // Add active to clicked tab
+            tab.classList.add('active');
+            
+            // Update content based on tab
+            const tabType = tab.getAttribute('data-tab');
+            updatePreviewContent(tabType);
+        });
+    });
+}
+
+// Update preview content based on tab selection
+function updatePreviewContent(tabType) {
+    const content = document.getElementById('preview-content');
+    if (!content || !csvPreviewData) return;
+    
+    if (tabType === 'csv') {
+        content.innerHTML = `
+            <div class="table-container">
+                <table id="csv-preview-table" class="preview-table">
+                    ${renderCSVPreview(csvPreviewData)}
+                </table>
+            </div>
+        `;
+    } else if (tabType === 'json') {
+        content.innerHTML = `
+            <pre class="json-preview">${JSON.stringify(csvPreviewData.json_preview || [], null, 2)}</pre>
+        `;
+    }
+}
+
+// Initialize upload functionality for modern layout
+function initializeUploadArea() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('csv-file-input');
+    const uploadLink = uploadArea?.querySelector('.upload-link');
+
+    if (!uploadArea || !fileInput) return;
+
+    // Click to select file
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            handleFileUpload(file);
+        }
+    });
+
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
 }
 
 // CSV Functions
@@ -1325,9 +1616,8 @@ async function handleFileUpload(file) {
         }
 
         csvPreviewData = result.preview;
-        // Populate CSV and JSON previews
-        elements.csvPreviewTable.innerHTML = renderCSVPreview(csvPreviewData);
-        elements.jsonPreview.textContent = JSON.stringify(csvPreviewData.json_preview || [], null, 2);
+        // Update preview content with new structure
+        updatePreviewContent('csv'); // Show CSV by default
         elements.previewSection.style.display = 'block';
         // Enable send button when there is preview data
         const sendBtn = document.getElementById('btn-send-data');
@@ -1390,8 +1680,8 @@ async function saveCSVData() {
     }
 }
 
-// Event Listeners
-document.addEventListener('DOMContentLoaded', function() {
+// Event Listeners 
+function initializeEventListeners() {
     // Navigation buttons
     document.getElementById('btn-new-device').addEventListener('click', () => {
         showView('createDevice');
@@ -1486,11 +1776,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Connection event listeners
     document.getElementById('btn-new-connection').addEventListener('click', () => {
         editingConnection = null;
-        document.getElementById('connection-form-title').textContent = 'Nueva Conexión';
-        document.getElementById('connection-submit-text').textContent = 'Crear Conexión';
+        document.getElementById('connection-form-title').textContent = '🔌 Nueva Conexión';
+        document.getElementById('connection-submit-text').textContent = '💾 Crear Conexión';
         document.getElementById('connection-form').reset();
         clearAuthFields();
         clearAdvancedFields();
+        updateConfigPreview();
+        updateTestButtonState();
         showView('connectionForm');
     });
 
@@ -1502,6 +1794,13 @@ document.addEventListener('DOMContentLoaded', function() {
         showView('connectionsList');
     });
 
+    // Edit connection from detail view
+    document.getElementById('btn-edit-connection').addEventListener('click', () => {
+        if (currentConnection) {
+            editConnection(currentConnection.id);
+        }
+    });
+
     document.getElementById('btn-cancel-connection').addEventListener('click', () => {
         document.getElementById('connection-form').reset();
         showView('connectionsList');
@@ -1510,6 +1809,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // Connection form handlers
     document.getElementById('connection-type').addEventListener('change', handleConnectionTypeChange);
     document.getElementById('auth-type').addEventListener('change', handleAuthTypeChange);
+    
+    // Advanced toggle handler
+    const toggleAdvanced = document.getElementById('toggle-advanced');
+    if (toggleAdvanced) {
+        toggleAdvanced.addEventListener('click', function() {
+            const advancedConfig = document.getElementById('advanced-config');
+            const icon = this.querySelector('.toggle-icon');
+            if (advancedConfig.classList.contains('hidden')) {
+                advancedConfig.classList.remove('hidden');
+                icon.textContent = '▲';
+            } else {
+                advancedConfig.classList.add('hidden');
+                icon.textContent = '▼';
+            }
+        });
+    }
+    
+    // Form input listeners for config preview
+    document.addEventListener('input', function(e) {
+        if (e.target.closest('#connection-form')) {
+            updateConfigPreview();
+            updateTestButtonState();
+        }
+    });
+    
+    document.addEventListener('change', function(e) {
+        if (e.target.closest('#connection-form')) {
+            updateConfigPreview();
+            updateTestButtonState();
+        }
+    });
 
     document.getElementById('connection-form').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -1539,7 +1869,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load initial data
     loadDevices();
-});
+}
 
 // Navigation functions
 function setActiveNav(section) {
@@ -1548,23 +1878,49 @@ function setActiveNav(section) {
 }
 
 // Connection functions
-async function loadConnections() {
+async function loadConnections(page = 1, perPage = 20, search = '', type = '', active = null) {
     const grid = document.getElementById('connections-grid');
     const loading = document.getElementById('connections-loading');
     
-    if (!grid || !loading) {
-        console.error('Elements not found: connections-grid or connections-loading');
+    if (!grid) {
+        // connections-grid element not found, skipping load
         return;
     }
     
+    if (!loading) {
+        // connections-loading element not found, continuing without loading indicator
+    }
+    
     try {
-        loading.style.display = 'block';
-        const connections = await API.getConnections();
+        if (loading) {
+            loading.style.display = 'block';
+        }
         
-        if (connections.length === 0) {
+        // Get paginated connections data
+        const response = await API.getConnections(page, perPage, search, type, active);
+        
+        // Handle both paginated and legacy response formats
+        let connectionsData;
+        if (response.items) {
+            // Paginated response
+            connectionsData = response.items;
+            
+            // Update pagination component
+            if (connectionsPagination) {
+                connectionsPagination.update(response.pagination || response);
+                connectionsPagination.setLoading(false);
+            }
+        } else if (Array.isArray(response)) {
+            // Legacy response format
+            connectionsData = response;
+        } else {
+            throw new Error('Formato de respuesta inesperado');
+        }
+        
+        if (connectionsData.length === 0) {
             grid.innerHTML = '<div class="loading">No hay conexiones configuradas</div>';
         } else {
-            grid.innerHTML = connections.map(conn => createConnectionCard(conn)).join('');
+            grid.innerHTML = connectionsData.map(conn => createConnectionCard(conn)).join('');
         }
     } catch (error) {
         console.error('Error loading connections:', error);
@@ -1579,8 +1935,11 @@ async function loadConnections() {
 
 function createConnectionCard(connection) {
     const statusClass = connection.is_active ? 'active' : 'inactive';
-    const typeClass = connection.type.toLowerCase();
-    const typeIcon = connection.type === 'MQTT' ? '🔄' : '🌐';
+    const typeLabel = getConnectionDisplayLabel(connection);
+    const typeClass = (connection.type === 'MQTT') ? 'mqtt' : (typeLabel.toLowerCase());
+    const typeIcon = connection.type === 'MQTT' ? '🔄' : (typeLabel === 'HTTPS' ? '🔒' : '🌐');
+    const scheme = getHttpSchemeForConnection(connection);
+    const schemeIcon = scheme === 'https' ? '🔒' : '🌐';
     
     return `
         <div class="connection-card">
@@ -1588,7 +1947,7 @@ function createConnectionCard(connection) {
             <div class="connection-header">
                 <div>
                     <div class="connection-title">${connection.name}</div>
-                    <div class="connection-type ${typeClass}">${typeIcon} ${connection.type}</div>
+                    <div class="connection-type ${typeClass}">${typeIcon} ${typeLabel}</div>
                 </div>
             </div>
             <div class="connection-info">
@@ -1598,10 +1957,10 @@ function createConnectionCard(connection) {
                 ${connection.description ? `<div><strong>Descripción:</strong> ${connection.description}</div>` : ''}
             </div>
             <div class="connection-actions">
-                <button class="btn btn-info btn-sm" onclick="viewConnection(${connection.id})">Ver</button>
-                <button class="btn btn-warning btn-sm" onclick="editConnection(${connection.id})">Editar</button>
-                <button class="btn btn-success btn-sm" onclick="testConnection(${connection.id})">Probar</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteConnection(${connection.id})">Eliminar</button>
+                <button class="btn btn-info btn-sm" onclick="viewConnection(${connection.id})">${window.i18n.t('common.actions.view_details')}</button>
+                <button class="btn btn-warning btn-sm" onclick="editConnection(${connection.id})">${window.i18n.t('common.actions.edit')}</button>
+                <button class="btn btn-success btn-sm" onclick="testConnection(${connection.id})">${window.i18n.t('connections.actions.test_connection')}</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteConnection(${connection.id})">${window.i18n.t('common.actions.delete')}</button>
             </div>
         </div>
     `;
@@ -1615,6 +1974,8 @@ async function viewConnection(id) {
         document.getElementById('connection-detail-title').textContent = connection.name;
         
         const info = document.getElementById('connection-info');
+        const typeLabel = getConnectionDisplayLabel(connection);
+        const typeIcon = connection.type === 'MQTT' ? '🔄' : (typeLabel === 'HTTPS' ? '🔒' : '🌐');
         info.innerHTML = `
             <div class="device-info-grid">
                 <div class="info-item">
@@ -1623,7 +1984,7 @@ async function viewConnection(id) {
                 </div>
                 <div class="info-item">
                     <label>Tipo:</label>
-                    <span>${connection.type === 'MQTT' ? '🔄 MQTT' : '🌐 HTTPS'}</span>
+                    <span>${typeIcon} ${typeLabel}</span>
                 </div>
                 <div class="info-item">
                     <label>Host:</label>
@@ -1694,28 +2055,90 @@ async function editConnection(id) {
         const connection = await API.getConnection(id);
         editingConnection = connection;
         
-        document.getElementById('connection-form-title').textContent = 'Editar Conexión';
-        document.getElementById('connection-submit-text').textContent = 'Actualizar Conexión';
-        
-        // Fill form with connection data
-        document.getElementById('connection-name').value = connection.name;
-        document.getElementById('connection-description').value = connection.description || '';
-        document.getElementById('connection-type').value = connection.type;
-        document.getElementById('connection-host').value = connection.host;
-        document.getElementById('connection-port').value = connection.port || '';
-        document.getElementById('connection-endpoint').value = connection.endpoint || '';
-        document.getElementById('auth-type').value = connection.auth_type;
-        
-        // Trigger change events to show appropriate fields
-        handleConnectionTypeChange();
-        handleAuthTypeChange();
-        
-        // Fill auth config if available
-        if (connection.auth_config) {
-            fillAuthFields(connection.auth_config);
-        }
-        
+        // Show the form view first to ensure elements exist
         showView('connectionForm');
+        
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+            try {
+                const titleElement = document.getElementById('connection-form-title');
+                const submitTextElement = document.getElementById('connection-submit-text');
+                
+                if (titleElement) titleElement.textContent = '🔌 Editar Conexión';
+                if (submitTextElement) submitTextElement.textContent = '💾 Actualizar Conexión';
+                
+                // Fill form with connection data
+                const nameField = document.getElementById('connection-name');
+                const descField = document.getElementById('connection-description');
+                const typeField = document.getElementById('connection-type');
+                const hostField = document.getElementById('connection-host');
+                const portField = document.getElementById('connection-port');
+                const endpointField = document.getElementById('connection-endpoint');
+                const authTypeField = document.getElementById('auth-type');
+                
+                if (nameField) nameField.value = connection.name;
+                if (descField) descField.value = connection.description || '';
+                if (typeField) typeField.value = connection.type;
+                if (hostField) hostField.value = connection.host;
+                if (portField) portField.value = connection.port || '';
+                if (endpointField) endpointField.value = connection.endpoint || '';
+                if (authTypeField) authTypeField.value = connection.auth_type;
+                
+                // Fill advanced fields if available
+                if (connection.timeout) {
+                    const timeoutField = document.getElementById('connection-timeout');
+                    if (timeoutField) timeoutField.value = connection.timeout;
+                }
+                if (connection.retries) {
+                    const retriesField = document.getElementById('connection-retries');
+                    if (retriesField) retriesField.value = connection.retries;
+                }
+                if (connection.additional_headers) {
+                    const headersField = document.getElementById('connection-headers');
+                    if (headersField) headersField.value = JSON.stringify(connection.additional_headers, null, 2);
+                }
+                // Prefill HTTP/HTTPS options if available
+                const cfg = connection.connection_config || {};
+                const sslCheckbox = document.getElementById('connection-ssl');
+                const verifySslCheckbox = document.getElementById('connection-verify-ssl');
+                const methodField = document.getElementById('connection-method');
+                if (sslCheckbox) {
+                    if (Object.prototype.hasOwnProperty.call(cfg, 'ssl')) {
+                        sslCheckbox.checked = !!cfg.ssl;
+                    } else {
+                        sslCheckbox.checked = (connection.type === 'HTTPS');
+                    }
+                }
+                if (verifySslCheckbox) {
+                    if (Object.prototype.hasOwnProperty.call(cfg, 'verify_ssl')) {
+                        verifySslCheckbox.checked = !!cfg.verify_ssl;
+                    } else {
+                        verifySslCheckbox.checked = true;
+                    }
+                }
+                if (methodField && cfg.method) {
+                    methodField.value = cfg.method;
+                }
+                
+                // Trigger change events to show appropriate fields
+                handleConnectionTypeChange();
+                handleAuthTypeChange();
+                
+                // Fill auth config if available
+                if (connection.auth_config) {
+                    fillAuthFields(connection.auth_config);
+                }
+                
+                // Update preview and test button
+                updateConfigPreview();
+                updateTestButtonState();
+                
+            } catch (domError) {
+                // Error filling form fields
+                showNotification('Error llenando formulario: ' + domError.message, 'error');
+            }
+        }, 100);
+        
         
     } catch (error) {
         showNotification('Error cargando conexión: ' + error.message, 'error');
@@ -1747,55 +2170,21 @@ function handleAuthTypeChange() {
     const authType = document.getElementById('auth-type').value;
     showAuthFields(authType);
     updateTestButtonState();
+    updateConfigPreview();
 }
 
 function showAuthFields(authType) {
-    const container = document.getElementById('auth-fields');
-    container.innerHTML = '';
-    
-    if (authType === 'USER_PASS') {
-        container.innerHTML = `
-            <div class="auth-field">
-                <label for="auth-username">Usuario *</label>
-                <input type="text" id="auth-username" name="username" required>
-            </div>
-            <div class="auth-field">
-                <label for="auth-password">Contraseña *</label>
-                <input type="password" id="auth-password" name="password" required>
-            </div>
-        `;
-    } else if (authType === 'TOKEN') {
-        container.innerHTML = `
-            <div class="auth-field">
-                <label for="auth-token">Token *</label>
-                <input type="text" id="auth-token" name="token" required>
-            </div>
-            <div class="auth-field">
-                <label for="auth-token-type">Tipo de Token</label>
-                <select id="auth-token-type" name="token_type">
-                    <option value="Bearer">Bearer</option>
-                    <option value="Token">Token</option>
-                </select>
-            </div>
-        `;
-    } else if (authType === 'API_KEY') {
-        container.innerHTML = `
-            <div class="auth-field">
-                <label for="auth-key">API Key *</label>
-                <input type="text" id="auth-key" name="key" required>
-            </div>
-            <div class="auth-field">
-                <label for="auth-location">Ubicación</label>
-                <select id="auth-location" name="location">
-                    <option value="header">Header</option>
-                    <option value="query">Query Parameter</option>
-                </select>
-            </div>
-            <div class="auth-field">
-                <label for="auth-param-name">Nombre del Parámetro</label>
-                <input type="text" id="auth-param-name" name="parameter_name" value="X-API-Key">
-            </div>
-        `;
+    // Hide all auth field sections
+    document.querySelectorAll('.connection-auth-fields').forEach(field => {
+        field.classList.add('hidden');
+    });
+
+    // Show the appropriate section based on auth type
+    if (authType !== 'NONE') {
+        const targetField = document.getElementById(`auth-${authType.toLowerCase().replace('_', '-')}`);
+        if (targetField) {
+            targetField.classList.remove('hidden');
+        }
     }
 }
 
@@ -1818,15 +2207,16 @@ function showAdvancedFields(type) {
             <div class="form-row">
                 <div class="form-group">
                     <label for="mqtt-qos">QoS</label>
-                    <select id="mqtt-qos" name="qos">
+                    <select class="filter-select" id="mqtt-qos" name="qos">
                         <option value="0">0 - At most once</option>
                         <option value="1" selected>1 - At least once</option>
                         <option value="2">2 - Exactly once</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="mqtt-ssl">
-                        <input type="checkbox" id="mqtt-ssl" name="ssl"> Usar SSL/TLS
+                    <label class=checkbox-label for="mqtt-ssl">
+                        <input type="checkbox" id="mqtt-ssl" name="ssl"> 
+                        <span>Usar SSL/TLS</span>
                     </label>
                 </div>
             </div>
@@ -1837,7 +2227,7 @@ function showAdvancedFields(type) {
             <div class="form-row">
                 <div class="form-group">
                     <label for="https-method">Método HTTP</label>
-                    <select id="https-method" name="method">
+                    <select class="filter-select" id="https-method" name="method">
                         <option value="POST" selected>POST</option>
                         <option value="PUT">PUT</option>
                         <option value="PATCH">PATCH</option>
@@ -1859,12 +2249,29 @@ function showAdvancedFields(type) {
 }
 
 function clearAuthFields() {
-    document.getElementById('auth-fields').innerHTML = '';
+    // Clear all auth field sections in the new structure
+    document.querySelectorAll('.connection-auth-fields').forEach(field => {
+        field.classList.add('hidden');
+        // Clear input values within each section
+        field.querySelectorAll('input, select, textarea').forEach(input => {
+            input.value = '';
+        });
+    });
 }
 
 function clearAdvancedFields() {
-    document.getElementById('advanced-fields').innerHTML = '';
-    document.getElementById('advanced-config').style.display = 'none';
+    const advancedConfig = document.getElementById('advanced-config');
+    if (advancedConfig) {
+        advancedConfig.classList.add('hidden');
+        // Clear input values within advanced section
+        advancedConfig.querySelectorAll('input, select, textarea').forEach(input => {
+            if (input.type === 'checkbox') {
+                input.checked = false;
+            } else {
+                input.value = '';
+            }
+        });
+    }
 }
 
 function fillAuthFields(authConfig) {
@@ -1872,34 +2279,122 @@ function fillAuthFields(authConfig) {
     const authType = document.getElementById('auth-type').value;
     
     if (authType === 'USER_PASS' && authConfig.username) {
-        document.getElementById('auth-username').value = authConfig.username;
-        if (authConfig.password) {
-            document.getElementById('auth-password').value = authConfig.password;
-        }
+        const usernameField = document.getElementById('auth-username');
+        const passwordField = document.getElementById('auth-password');
+        if (usernameField) usernameField.value = authConfig.username;
+        if (passwordField && authConfig.password) passwordField.value = authConfig.password;
     } else if (authType === 'TOKEN' && authConfig.token) {
-        document.getElementById('auth-token').value = authConfig.token;
-        if (authConfig.token_type) {
-            document.getElementById('auth-token-type').value = authConfig.token_type;
-        }
+        const tokenField = document.getElementById('auth-token-value');
+        if (tokenField) tokenField.value = authConfig.token;
     } else if (authType === 'API_KEY' && authConfig.key) {
-        document.getElementById('auth-key').value = authConfig.key;
-        if (authConfig.location) {
-            document.getElementById('auth-location').value = authConfig.location;
-        }
-        if (authConfig.parameter_name) {
-            document.getElementById('auth-param-name').value = authConfig.parameter_name;
-        }
+        const headerField = document.getElementById('api-key-header');
+        const keyField = document.getElementById('api-key-value');
+        if (headerField && authConfig.header_name) headerField.value = authConfig.header_name;
+        if (keyField) keyField.value = authConfig.key;
     }
 }
 
 function updateTestButtonState() {
     const testBtn = document.getElementById('btn-test-connection');
-    const name = document.getElementById('connection-name').value;
-    const type = document.getElementById('connection-type').value;
-    const host = document.getElementById('connection-host').value;
-    const authType = document.getElementById('auth-type').value;
+    if (!testBtn) return;
+    
+    const nameField = document.getElementById('connection-name');
+    const typeField = document.getElementById('connection-type');
+    const hostField = document.getElementById('connection-host');
+    const authTypeField = document.getElementById('auth-type');
+    
+    if (!nameField || !typeField || !hostField || !authTypeField) return;
+    
+    const name = nameField.value;
+    const type = typeField.value;
+    const host = hostField.value;
+    const authType = authTypeField.value;
     
     testBtn.disabled = !(name && type && host && authType);
+}
+
+function updateConfigPreview() {
+    const configPreview = document.getElementById('config-preview');
+    if (!configPreview) return;
+    
+    const nameField = document.getElementById('connection-name');
+    const typeField = document.getElementById('connection-type');
+    const hostField = document.getElementById('connection-host');
+    const portField = document.getElementById('connection-port');
+    const endpointField = document.getElementById('connection-endpoint');
+    const authTypeField = document.getElementById('auth-type');
+    const timeoutField = document.getElementById('connection-timeout');
+    const retriesField = document.getElementById('connection-retries');
+    const methodField = document.getElementById('connection-method');
+    const sslCheckbox = document.getElementById('connection-ssl');
+    const verifySslCheckbox = document.getElementById('connection-verify-ssl');
+    
+    if (!nameField || !typeField || !hostField || !authTypeField) return;
+    
+    const config = {
+        name: nameField.value || "",
+        type: typeField.value || "",
+        host: hostField.value || "",
+        port: portField ? portField.value || null : null,
+        endpoint: endpointField ? endpointField.value || "" : "",
+        auth_type: authTypeField.value || "NONE",
+        timeout: timeoutField ? timeoutField.value || 30 : 30,
+        retries: retriesField ? retriesField.value || 3 : 3
+    };
+
+    // HTTPS specific preview fields
+    if (config.type === 'HTTPS') {
+        if (methodField && methodField.value) {
+            config.method = methodField.value;
+        }
+        if (sslCheckbox) {
+            config.ssl = !!sslCheckbox.checked;
+        }
+        if (verifySslCheckbox) {
+            config.verify_ssl = !!verifySslCheckbox.checked;
+        }
+    }
+    
+    // Add auth config based on type
+    const authType = config.auth_type;
+    if (authType === 'USER_PASS') {
+        const username = document.getElementById('auth-username');
+        const password = document.getElementById('auth-password');
+        if (username && password) {
+            config.auth_config = {
+                username: username.value || "",
+                password: password.value ? "••••••••" : ""
+            };
+        }
+    } else if (authType === 'TOKEN') {
+        const token = document.getElementById('auth-token-value');
+        if (token) {
+            config.auth_config = {
+                token: token.value ? "••••••••" : ""
+            };
+        }
+    } else if (authType === 'API_KEY') {
+        const header = document.getElementById('api-key-header');
+        const key = document.getElementById('api-key-value');
+        if (header && key) {
+            config.auth_config = {
+                header_name: header.value || "X-API-Key",
+                api_key: key.value ? "••••••••" : ""
+            };
+        }
+    }
+    
+    // Add additional headers if present
+    const additionalHeaders = document.getElementById('connection-headers');
+    if (additionalHeaders && additionalHeaders.value.trim()) {
+        try {
+            config.additional_headers = JSON.parse(additionalHeaders.value);
+        } catch (e) {
+            config.additional_headers = "Invalid JSON";
+        }
+    }
+    
+    configPreview.textContent = JSON.stringify(config, null, 2);
 }
 
 async function handleConnectionSubmit() {
@@ -1946,6 +2441,7 @@ async function handleConnectionSubmit() {
             connectionConfig.method = formData.get('method') || 'POST';
             connectionConfig.timeout = parseInt(formData.get('timeout')) || 30;
             connectionConfig.verify_ssl = formData.has('verify_ssl');
+            connectionConfig.ssl = formData.has('ssl');
         }
         
         connectionData.connection_config = connectionConfig;
@@ -2021,31 +2517,31 @@ async function showSendDataModal() {
     }
     
     try {
-        const connections = await API.getConnections();
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const activeConnections = connections.filter(conn => conn.is_active);
         
         if (activeConnections.length === 0) {
             showNotification('No hay conexiones activas disponibles', 'warning');
             return;
         }
-        
+
         const selector = document.getElementById('connections-selector');
+        if (!selector) return;
+
         selector.innerHTML = activeConnections.map(conn => `
             <div class="connection-option" onclick="selectConnection(${conn.id})">
                 <input type="radio" name="connection" value="${conn.id}" id="conn-${conn.id}">
                 <div class="connection-option-info">
                     <div class="connection-option-name">${conn.name}</div>
-                    <div class="connection-option-details">
-                        ${conn.type} - ${conn.host}${conn.port ? ':' + conn.port : ''}
-                    </div>
+                    <div class="connection-option-details">${getConnectionDisplayLabel(conn)} - ${conn.host}${conn.port ? ':' + conn.port : ''}</div>
                 </div>
             </div>
         `).join('');
         
-        // Show data preview
+        document.getElementById('send-data-modal').classList.add('active');
         const preview = document.getElementById('send-data-preview');
-        preview.textContent = JSON.stringify(currentDevice.csv_data, null, 2);
-        
+        if (preview) preview.textContent = JSON.stringify(currentDevice.csv_data, null, 2);
         document.getElementById('send-data-modal').classList.add('active');
         
     } catch (error) {
@@ -2131,6 +2627,14 @@ async function loadTransmissionConfig(deviceId) {
             if (connectionSelector) {
                 connectionSelector.value = String(selectedId);
             }
+        } else {
+            // Fallback to last selected in this browser
+            const key = `device_last_connection_${deviceId}`;
+            const last = localStorage.getItem(key);
+            const connectionSelector = document.getElementById('transmission-connection');
+            if (connectionSelector && last && connectionSelector.querySelector(`option[value="${last}"]`)) {
+                connectionSelector.value = last;
+            }
         }
         
     } catch (error) {
@@ -2164,6 +2668,10 @@ async function saveTransmissionConfig() {
             currentDevice = updatedDevice;
             showNotification('✅ Configuración guardada correctamente', 'success');
             
+            // Persist user selection locally as a UI preference
+            const persistKey = `device_last_connection_${currentDevice.id}`;
+            if (connectionId) localStorage.setItem(persistKey, connectionId); else localStorage.removeItem(persistKey);
+
             // Update sensor controls visibility
             const sensorControls = document.getElementById('sensor-controls');
             if (deviceType === 'Sensor') {
@@ -2232,23 +2740,31 @@ function updateTransmissionStatusIndicator(device) {
 // Load connections into transmission selector
 async function loadTransmissionConnections() {
     try {
-        const response = await fetch(`${API_BASE}/connections`);
-        if (response.ok) {
-            const connections = await response.json();
-            const selector = document.getElementById('transmission-connection');
-            
-            // Clear existing options except the first one
-            selector.innerHTML = '<option value="">Seleccionar conexión...</option>';
-            
-            connections.forEach(conn => {
+        const response = await API.getConnections(1, 1000); // Fetch all connections
+        const connections = normalizePaginatedData(response);
+        const selector = document.getElementById('transmission-connection');
+        
+        if (!selector) return;
+
+        const currentVal = selector.value;
+        selector.innerHTML = '<option value="">Seleccionar conexión...</option>';
+        
+        connections
+            .filter(c => c.is_active)
+            .forEach(conn => {
                 const option = document.createElement('option');
                 option.value = conn.id;
-                option.textContent = `${conn.name} (${conn.url})`;
+                option.textContent = `${conn.name} (${getConnectionDisplayLabel(conn)})`;
                 selector.appendChild(option);
             });
+        
+        // Restore previous selection if it still exists
+        if (selector.querySelector(`option[value="${currentVal}"]`)) {
+            selector.value = currentVal;
         }
+
     } catch (error) {
-        console.error('Error loading connections:', error);
+        console.error('Error loading connections for transmission selector:', error);
     }
 }
 
@@ -2504,7 +3020,8 @@ function initializeHistoryFilters() {
 
 async function loadConnectionsForFilter() {
     try {
-        const connections = await API.getConnections();
+        const response = await API.getConnections(1, 1000);
+        const connections = normalizePaginatedData(response);
         const connectionFilter = document.getElementById('history-filter-connection');
         
         if (connectionFilter && connections) {
@@ -2519,20 +3036,10 @@ async function loadConnectionsForFilter() {
 
 // ...
 
-// Initialize application
-document.addEventListener('DOMContentLoaded', function() {
-    transmissionAPI = new TransmissionAPI();
-    realtimeMonitor = new RealtimeTransmissionMonitor();
-    
-    loadDevices();
-    loadConnections();
-    
-    // Initialize real-time monitoring
-    // Realtime monitor auto-connects internally
-});
+// Removed - consolidated into main DOMContentLoaded handler
 
-// Event Listeners for Transmission Controls
-document.addEventListener('DOMContentLoaded', function() {
+// Event Listeners for Transmission Controls - Will be initialized by main DOMContentLoaded handler
+function initializeTransmissionControls() {
     // Device type change handler
     document.getElementById('device-type').addEventListener('change', function() {
         const sensorControls = document.getElementById('sensor-controls');
@@ -2604,7 +3111,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showView('projectsList');
             loadProjects();
         } catch (error) {
-            console.error('Error deleting project:', error);
+            // Error deleting project
             showNotification('Error eliminando proyecto', 'error');
         }
     });
@@ -2639,7 +3146,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadProjects();
             
         } catch (error) {
-            console.error('Error saving project:', error);
+            // Error saving project
             const errorMsg = error.message || 'Error guardando proyecto';
             showNotification(errorMsg, 'error');
         }
@@ -2669,7 +3176,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Device deletion event listeners
     document.getElementById('btn-confirm-delete').addEventListener('click', confirmDeleteDevice);
     document.getElementById('btn-cancel-delete').addEventListener('click', hideDeleteModal);
-});
+}
 
 // Project CRUD functions
 async function editProject(projectId) {
@@ -2688,7 +3195,7 @@ async function editProject(projectId) {
         showView('projectForm');
         
     } catch (error) {
-        console.error('Error loading project for edit:', error);
+        // Error loading project for edit
         showNotification('Error cargando proyecto', 'error');
     }
 }
@@ -2743,12 +3250,24 @@ async function showDuplicateModal(deviceId) {
         return;
     }
     
-    console.log('Found device for duplication:', device.name);
-    document.getElementById('device-name-to-duplicate').textContent = device.name;
-    document.getElementById('duplicate-count').value = 1;
-    updateDuplicatePreview();
+    // Found device for duplication
     
+    // Show modal first to ensure DOM elements exist
     document.getElementById('duplicate-device-modal').classList.add('active');
+    
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+        const deviceNameElement = document.getElementById('device-name-to-duplicate');
+        const duplicateCountElement = document.getElementById('duplicate-count');
+        
+        if (deviceNameElement) {
+            deviceNameElement.textContent = device.name;
+        }
+        if (duplicateCountElement) {
+            duplicateCountElement.value = 1;
+        }
+        updateDuplicatePreview();
+    }, 50);
 }
 
 function hideDuplicateModal() {
@@ -2757,13 +3276,17 @@ function hideDuplicateModal() {
 }
 
 function updateDuplicatePreview() {
-    const count = parseInt(document.getElementById('duplicate-count').value) || 1;
+    const countElement = document.getElementById('duplicate-count');
+    const previewList = document.getElementById('duplicate-names-preview');
+    
+    if (!countElement || !previewList) return;
+    
+    const count = parseInt(countElement.value) || 1;
     
     // Get device name from the modal display instead of searching the array
     const deviceNameElement = document.getElementById('device-name-to-duplicate');
     const deviceName = deviceNameElement ? deviceNameElement.textContent : 'Dispositivo';
     
-    const previewList = document.getElementById('duplicate-names-preview');
     previewList.innerHTML = '';
     
     for (let i = 1; i <= Math.min(count, 50); i++) {
@@ -2799,7 +3322,7 @@ async function confirmDuplicateDevice() {
         loadDevices();
         
     } catch (error) {
-        console.error('Error duplicating device:', error);
+        // Error duplicating device
         showNotification('Error duplicando dispositivo: ' + error.message, 'error');
     }
 }
@@ -2829,10 +3352,18 @@ async function showDeleteModal(deviceId) {
         return;
     }
     
-    console.log('Found device for deletion:', device.name);
-    document.getElementById('device-name-to-delete').textContent = device.name;
+    // Found device for deletion
     
+    // Show modal first to ensure DOM elements exist
     document.getElementById('delete-device-modal').classList.add('active');
+    
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+        const deviceNameElement = document.getElementById('device-name-to-delete');
+        if (deviceNameElement) {
+            deviceNameElement.textContent = device.name;
+        }
+    }, 50);
 }
 
 function hideDeleteModal() {
@@ -2870,7 +3401,7 @@ async function confirmDeleteDevice() {
             showNotification(error.error || 'Error al eliminar dispositivo', 'error');
         }
     } catch (error) {
-        console.error('Error deleting device:', error);
+        // Error deleting device
         showNotification('Error de conexión al eliminar dispositivo', 'error');
     } finally {
         // Re-enable buttons
@@ -2899,3 +3430,260 @@ window.exportProjectTransmissionHistory = exportProjectTransmissionHistory;
 window.hideOperationResultsModal = hideOperationResultsModal;
 window.selectConnection = selectConnection;
 window.selectTransmitConnection = selectTransmitConnection;
+
+// Initialize i18n system when DOM is loaded
+document.addEventListener('DOMContentLoaded', async function() {
+    // Initializing Device Simulator with i18n support
+    
+    try {
+        // Initialize i18n system
+        await window.i18n.initialize();
+        
+        // Setup language selector
+        initializeLanguageSelector();
+        
+        // Initialize authentication first
+        initializeAuthentication();
+        
+        // Wait for Keycloak to initialize before loading data
+        if (window.keycloakAuth && window.keycloakAuth.config?.enabled) {
+            // Wait for authentication to be ready
+            await new Promise(resolve => {
+                const checkAuth = () => {
+                    if (window.keycloakAuth.isAuthenticated() || !window.keycloakAuth.config?.enabled) {
+                        resolve();
+                    } else {
+                        // Check if we need to redirect to login
+                        setTimeout(checkAuth, 100);
+                    }
+                };
+                checkAuth();
+            });
+        }
+        
+        // Initialize the rest of the application only after auth is ready
+        await initializeApp();
+        
+        console.log('✅ Device Simulator initialized successfully');
+    } catch (error) {
+        console.error('❌ Error initializing Device Simulator:', error);
+        showNotification('Error al inicializar la aplicación', 'error');
+    }
+});
+
+// Initialize language selector functionality
+function initializeLanguageSelector() {
+    const languageSelector = document.getElementById('language-selector');
+    
+    if (languageSelector) {
+        languageSelector.addEventListener('click', async () => {
+            const currentLang = window.i18n.getCurrentLanguage();
+            const newLang = currentLang === 'es' ? 'en' : 'es';
+            
+            try {
+                await window.i18n.changeLanguage(newLang);
+                
+                // Show notification about language change
+                const message = newLang === 'es' 
+                    ? 'Idioma cambiado a Español' 
+                    : 'Language changed to English';
+                showNotification(message, 'success');
+                
+                // Update dynamic content that might not be covered by data-i18n
+                updateDynamicTranslations();
+                
+            } catch (error) {
+                console.error('Error changing language:', error);
+                showNotification('Error al cambiar idioma', 'error');
+            }
+        });
+    }
+    
+    // Listen for language change events
+    document.addEventListener('languageChanged', (event) => {
+        console.log('🌐 Language changed to:', event.detail.language);
+        updateDynamicTranslations();
+    });
+}
+
+// Update translations for dynamically generated content
+function updateDynamicTranslations() {
+    // Update loading messages
+    const devicesLoading = document.getElementById('devices-loading');
+    if (devicesLoading) {
+        devicesLoading.textContent = window.i18n.t('devices.messages.loading_devices');
+    }
+    
+    const connectionsLoading = document.getElementById('connections-loading');
+    if (connectionsLoading) {
+        connectionsLoading.textContent = window.i18n.t('connections.messages.loading_connections');
+    }
+    
+    const projectsLoading = document.getElementById('projects-loading');
+    if (projectsLoading) {
+        projectsLoading.textContent = window.i18n.t('projects.messages.loading_projects');
+    }
+    
+    // Re-render current view content if needed
+    if (document.getElementById('devices-list-view').classList.contains('active')) {
+        renderDevices(devices);
+    }
+    if (document.getElementById('connections-list-view').classList.contains('active')) {
+        renderConnections(connections);
+    }
+}
+
+// Initialize sidebar navigation
+function initializeDefaultNavigation() {
+    // Navigation
+    document.getElementById('nav-devices').addEventListener('click', () => {
+        setActiveNav('devices');
+        showView('devicesList');
+        loadDevices();
+    });
+
+    document.getElementById('nav-projects').addEventListener('click', () => {
+        setActiveNav('projects');
+        showView('projectsList');
+        loadProjects();
+    });
+
+    document.getElementById('nav-connections').addEventListener('click', () => {
+        setActiveNav('connections');
+        showView('connectionsList');
+        loadConnections();
+    });
+
+    // Set default active navigation
+    setActiveNav('devices');
+    showView('devicesList');
+}
+
+// Initialize pagination components
+function initializePagination() {
+    // Initialize devices pagination
+    devicesPagination = new PaginationComponent('devices-pagination', (page, pageSize) => {
+        loadDevices(page, pageSize);
+    }, {
+        showInfo: true,
+        showSizeSelector: true,
+        maxVisiblePages: 5,
+        pageSizes: [10, 20, 50, 100],
+        defaultPageSize: 20
+    });
+    
+    // Initialize connections pagination
+    connectionsPagination = new PaginationComponent('connections-pagination', (page, pageSize) => {
+        loadConnections(page, pageSize);
+    }, {
+        showInfo: true,
+        showSizeSelector: true,
+        maxVisiblePages: 5,
+        pageSizes: [10, 20, 50, 100],
+        defaultPageSize: 20
+    });
+    
+    // Initialize projects pagination
+    projectsPagination = new PaginationComponent('projects-pagination', (page, pageSize) => {
+        loadProjects(page, pageSize);
+    }, {
+        showInfo: true,
+        showSizeSelector: true,
+        maxVisiblePages: 5,
+        pageSizes: [10, 20, 50, 100],
+        defaultPageSize: 20
+    });
+}
+
+// Initialize authentication system
+function initializeAuthentication() {
+    // Listen for authentication success events
+    window.addEventListener('keycloak-auth-success', (event) => {
+        console.log('🔐 Authentication successful:', event.detail.user);
+        updateAuthenticationUI();
+    });
+    
+    // Setup logout button
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
+            if (window.keycloakAuth) {
+                window.keycloakAuth.logout();
+            }
+        });
+    }
+    
+    // Show auth section if authentication is enabled
+    if (window.keycloakAuth && window.keycloakAuth.config?.enabled) {
+        const authSection = document.getElementById('auth-section');
+        if (authSection) {
+            authSection.style.display = 'block';
+        }
+        updateAuthenticationUI();
+    }
+}
+
+// Update authentication UI elements
+function updateAuthenticationUI() {
+    if (!window.keycloakAuth || !window.keycloakAuth.config?.enabled) {
+        return;
+    }
+    
+    const authSection = document.getElementById('auth-section');
+    const userInfo = document.getElementById('user-info');
+    const logoutButton = document.getElementById('logout-button');
+    
+    if (window.keycloakAuth.isAuthenticated()) {
+        const user = window.keycloakAuth.getCurrentUser();
+        
+        if (authSection) authSection.style.display = 'block';
+        
+        if (userInfo && user) {
+            userInfo.innerHTML = `
+                <div class="user-avatar">👤</div>
+                <div class="user-details">
+                    <div class="user-name">${user.username || user.email || 'Usuario'}</div>
+                    <div class="user-role">${user.roles?.[0] || 'user'}</div>
+                </div>
+            `;
+        }
+        
+        if (logoutButton) logoutButton.style.display = 'block';
+    } else {
+        if (authSection) authSection.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'none';
+    }
+}
+
+// Initialize the main application
+async function initializeApp() {
+    // Initialize authentication first
+    initializeAuthentication();
+    
+    // Initialize sidebar navigation
+    initializeDefaultNavigation();
+    
+    // Initialize pagination components
+    initializePagination();
+    
+    // Load initial data
+    await loadDevices();
+    await loadConnections();
+    
+    // Initialize forms and event listeners
+    initializeEventListeners();
+    
+    // Initialize transmission controls
+    initializeTransmissionControls();
+    
+    // Initialize transmission API if available
+    if (typeof TransmissionAPI !== 'undefined') {
+        transmissionAPI = new TransmissionAPI(API_BASE);
+    }
+    
+    // Initialize real-time monitoring if available
+    if (typeof RealtimeMonitor !== 'undefined') {
+        realtimeMonitor = new RealtimeMonitor();
+        realtimeMonitor.connect();
+    }
+}

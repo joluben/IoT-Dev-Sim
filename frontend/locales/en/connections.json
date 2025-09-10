@@ -1,0 +1,83 @@
+{
+  "title": "Connections",
+  "connection": "Connection",
+  "connections": "Connections",
+  "create_connection": "Create Connection",
+  "edit_connection": "Edit Connection",
+  "connection_details": "Connection Details",
+  "connection_form": {
+    "name": "Connection Name",
+    "description": "Description",
+    "connection_type": "Connection Type",
+    "endpoint": "Endpoint",
+    "auth_type": "Authentication Type",
+    "username": "Username",
+    "password": "Password",
+    "token": "Token",
+    "api_key": "API Key",
+    "is_active": "Active"
+  },
+  "connection_types": {
+    "MQTT": "MQTT",
+    "HTTPS": "HTTPS"
+  },
+  "auth_types": {
+    "none": "No authentication",
+    "user_pass": "Username/Password",
+    "token": "Token",
+    "api_key": "API Key"
+  },
+  "actions": {
+    "test_connection": "Test",
+    "activate": "Activate",
+    "deactivate": "Deactivate"
+  },
+  "messages": {
+    "connection_created": "Connection created successfully",
+    "connection_updated": "Connection updated successfully",
+    "connection_deleted": "Connection deleted successfully",
+    "connection_test_success": "Connection test successful",
+    "connection_test_failed": "Connection test failed",
+    "no_connections": "No connections available",
+    "loading_connections": "Loading connections..."
+  },
+  "sections": {
+    "basic_info": "Basic Information",
+    "server_config": "Server Configuration",
+    "authentication": "Authentication",
+    "advanced": "Advanced Configuration"
+  },
+  "labels": {
+    "host": "Host/Server",
+    "port": "Port",
+    "endpoint": "Endpoint/Topic",
+    "api_key_header": "Header Name",
+    "timeout": "Timeout (seconds)",
+    "retries": "Retries",
+    "additional_headers": "Additional Headers"
+  },
+  "placeholders": {
+    "host": "example.com",
+    "port": "1883",
+    "endpoint": "/api/data or devices/topic",
+    "username": "username",
+    "password": "••••••••",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "api_key_header": "X-API-Key",
+    "api_key": "your_api_key_here",
+    "timeout": "30",
+    "retries": "3",
+    "additional_headers": "{\"Content-Type\": \"application/json\"}"
+  },
+  "preview": {
+    "title": "Preview",
+    "generated_config": "Generated configuration:"
+  },
+  "history": {
+    "title": "Test History",
+    "loading": "Loading history..."
+  },
+  "select": {
+    "type_placeholder": "Select type..."
+  }
+}

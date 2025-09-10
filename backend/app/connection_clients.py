@@ -209,24 +209,56 @@ class HTTPSClient:
                 # Para query parameters se manejará en send_request
     
     def _build_url(self, endpoint=None):
-        """Construye la URL completa"""
-        host = self.connection_config['host']
+        """Construye la URL completa permitiendo HTTP o HTTPS.
+        Reglas de selección de esquema:
+        1) Si el host incluye esquema (http:// o https://), usarlo y sanear host
+        2) Si se especifica connection_config['ssl'], usar https si True, http si False
+        3) Si hay puerto: 443 => https, otro => http
+        4) Por defecto http
+        """
+        raw_host = self.connection_config['host']
         port = self.connection_config.get('port')
         endpoint = endpoint or self.connection_config.get('endpoint', '')
+
+        # Extraer esquema del host si viene incluido
+        scheme = None
+        host = raw_host
+        if isinstance(raw_host, str):
+            lowered = raw_host.lower()
+            if lowered.startswith('http://'):
+                scheme = 'http'
+                host = raw_host[7:]
+            elif lowered.startswith('https://'):
+                scheme = 'https'
+                host = raw_host[8:]
         
-        # Determinar esquema
-        scheme = 'https' if self.connection_config.get('ssl', True) else 'http'
-        
+        # Remover posibles slashes finales en host
+        host = host.rstrip('/')
+
+        # Regla 2: bandera ssl explícita
+        if scheme is None:
+            if 'ssl' in self.connection_config:
+                scheme = 'https' if self.connection_config.get('ssl') else 'http'
+            elif port is not None:
+                # Regla 3: inferir por puerto
+                scheme = 'https' if int(port) == 443 else 'http'
+            else:
+                # Regla 4: por defecto http
+                scheme = 'http'
+
         # Construir URL base
-        if port and port not in [80, 443]:
+        if port and int(port) not in [80, 443]:
             base_url = f"{scheme}://{host}:{port}"
         else:
             base_url = f"{scheme}://{host}"
-        
-        # Agregar endpoint
-        if endpoint and not endpoint.startswith('/'):
-            endpoint = '/' + endpoint
-        
+
+        # Agregar endpoint normalizado
+        if endpoint:
+            if not endpoint.startswith('/'):
+                endpoint = '/' + endpoint
+        else:
+            endpoint = ''
+
         return base_url + endpoint
     
     def send_request(self, data, endpoint=None, method=None):
@@ -295,7 +327,7 @@ class HTTPSClient:
             return {
                 'success': True,
                 'response_time': response_time,
-                'message': f'Conexión HTTPS exitosa (Status: {response.status_code})'
+                'message': f'Conexión HTTP(S) exitosa a {url} (Status: {response.status_code})'
             }
             
         except requests.exceptions.RequestException as e:
@@ -303,7 +335,7 @@ class HTTPSClient:
             return {
                 'success': False,
                 'response_time': response_time,
-                'message': f'Error de conexión HTTPS: {str(e)}'
+                'message': f'Error de conexión HTTP(S): {str(e)}'
             }
         except Exception as e:
             response_time = int((time.time() - start_time) * 1000)

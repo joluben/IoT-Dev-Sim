@@ -1,0 +1,72 @@
+{
+  "title": "Projects",
+  "project": "Project",
+  "projects": "Projects",
+  "create_project": "Create Project",
+  "edit_project": "Edit Project",
+  "project_details": "Project Details",
+  "project_form": {
+    "name": "Project Name",
+    "description": "Description",
+    "assigned_devices": "Assigned Devices",
+    "available_devices": "Available Devices"
+  },
+  "actions": {
+    "assign_devices": "Assign Devices",
+    "remove_devices": "Remove",
+    "bulk_start_transmission": "Bulk Start Transmission",
+    "bulk_stop_transmission": "Bulk Stop Transmission",
+    "start_transmissions": "Start Transmissions",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "add_devices": "Add Devices"
+  },
+  "messages": {
+    "project_created": "Project created successfully",
+    "project_updated": "Project updated successfully",
+    "project_deleted": "Project deleted successfully",
+    "devices_assigned": "Devices assigned to project",
+    "devices_removed": "Devices removed from project",
+    "no_projects": "No projects available",
+    "loading_projects": "Loading projects...",
+    "no_project_devices": "No devices in this project"
+  },
+  "modals": {
+    "add_devices": {
+      "title": "Add Devices to Project",
+      "select_devices": "Select the devices you want to add to the project:",
+      "confirm": "Add Selected",
+      "no_devices": "No unassigned devices available",
+      "success": "{{count}} devices added to project successfully"
+    }
+  },
+  "select": {
+    "use_device_connection": "Use each device's connection"
+  },
+  "labels": {
+    "devices": "Devices:",
+    "transmissions": "Transmissions:",
+    "success": "Success:",
+    "connection_for_transmission": "Connection for Transmission"
+  },
+  "sections": {
+    "info": "Project Information",
+    "transmission_control": "Transmission Control",
+    "devices": "Project Devices",
+    "transmission_history": "Transmission History"
+  },
+  "history": {
+    "filters": {
+      "all_status": "All statuses",
+      "success": "Successful",
+      "failed": "Failed"
+    },
+    "actions": {
+      "refresh": "Refresh"
+    }
+  },
+  "status": {
+    "inactive": "Transmissions inactive"
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "title": "Devices",
+  "device": "Device",
+  "devices": "Devices",
+  "create_device": "Create Device",
+  "edit_device": "Edit Device",
+  "device_details": "Device Details",
+  "device_form": {
+    "name": "Device Name",
+    "description": "Description",
+    "reference": "Reference",
+    "device_type": "Device Type",
+    "csv_file": "CSV File",
+    "transmission_frequency": "Transmission Frequency",
+    "transmission_enabled": "Transmission Enabled"
+  },
+  "device_types": {
+    "WebApp": "Web Application",
+    "Sensor": "Sensor"
+  },
+  "actions": {
+    "upload_csv": "Upload CSV",
+    "start_transmission": "Start Transmission",
+    "stop_transmission": "Stop Transmission",
+    "pause_transmission": "Pause Transmission",
+    "resume_transmission": "Resume Transmission",
+    "transmit_now": "Transmit Now",
+    "save_config": "Save Configuration"
+  },
+  "messages": {
+    "device_created": "Device created successfully",
+    "device_updated": "Device updated successfully",
+    "device_deleted": "Device deleted successfully",
+    "csv_uploaded": "CSV file uploaded successfully",
+    "transmission_started": "Transmission started",
+    "transmission_stopped": "Transmission stopped",
+    "no_devices": "No devices available",
+    "loading_devices": "Loading devices..."
+  },
+  "sections": {
+    "info": "Device Information",
+    "import_csv": "Import CSV",
+    "transmission": "Transmission Configuration",
+    "transmission_history": "Transmission History"
+  },
+  "upload": {
+    "drag": "Drag your CSV file here or",
+    "select_file": "select a file"
+  },
+  "status": {
+    "inactive": "Inactive"
+  },
+  "sensor": {
+    "current_position": "Current position:",
+    "reset_position": "Reset Position"
+  },
+  "labels": {
+    "connection_for_transmission": "Connection for Transmission",
+    "auto_transmission_enabled": "Automatic transmission enabled",
+    "include_device_id": "Include device_id in payload"
+  },
+  "select": {
+    "connection_placeholder": "Select connection..."
+  },
+  "history": {
+    "filters": {
+      "all_status": "All statuses",
+      "success": "Successful",
+      "failed": "Failed",
+      "all_connections": "All connections"
+    },
+    "actions": {
+      "refresh": "Refresh"
+    },
+    "page_info": "Page 1"
+  },
+  "preview": {
+    "title": "Preview",
+    "csv": "CSV View",
+    "json": "JSON View",
+    "save_data": "Save Data",
+    "send_to_connection": "Send to Connection"
+  },
+  "modals": {
+    "send_data": {
+      "title": "Send Device Data",
+      "select_connection": "Select a connection to send the data:",
+      "preview_title": "Data preview:"
+    },
+    "manual_transmission": {
+      "title": "Manual Transmission",
+      "select_connection": "Select a connection for the transmission:"
+    }
+  },
+  "delete": {
+    "title": "Delete Device",
+    "intro": "You are about to delete the device \"{{name}}\".",
+    "warning_strong": "This action is permanent and cannot be undone.",
+    "confirm_question": "Do you want to continue?"
+  },
+  "duplicate": {
+    "title": "Duplicate Device",
+    "count_label": "Number of duplicates",
+    "preview_label": "Name preview:",
+    "confirm": "Confirm Duplication",
+    "success": "{{count}} devices duplicated successfully",
+    "question": "How many copies do you want to create of \"{{name}}\"?"
+  }
+}

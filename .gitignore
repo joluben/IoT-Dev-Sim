@@ -48,6 +48,12 @@ uploads/
 *.csv
 *.json
 
+# Allow localization files
+!frontend/locales/**/*.json
+
+# Allow Keycloak configuration files
+!keycloak/realm-config/*.json
+
 # Logs
 *.log
 logs/
@@ -59,4 +65,14 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Folders
 /.windsurf
+/.kiro
+
+# Security: encryption keys (do not commit)
+/data
+
+# Personal Folders
+/UI example
+/ignore files
+/keycloak

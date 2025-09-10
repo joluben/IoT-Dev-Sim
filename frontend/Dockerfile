@@ -3,6 +3,7 @@ FROM nginx:alpine
 
 # Copiar archivos estáticos del frontend
 COPY static/ /usr/share/nginx/html/
+COPY locales/ /usr/share/nginx/html/locales/
 
 # Copiar configuración personalizada de nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf

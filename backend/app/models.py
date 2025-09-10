@@ -6,6 +6,9 @@ from cryptography.fernet import Fernet
 import os
 import base64
 from .database import execute_query, execute_insert
+from .orm_adapter import DeviceORMAdapter, ConnectionORMAdapter, ProjectORMAdapter, TransmissionORMAdapter
+from .secrets_mgmt.secret_manager import get_secret_manager
+from .secrets_mgmt import encrypt_credential, decrypt_credential
 
 class Device:
     DEVICE_TYPES = ['WebApp', 'Sensor']
@@ -51,15 +54,35 @@ class Device:
 
     @classmethod
     def get_all(cls):
-        """Obtiene todos los dispositivos"""
-        rows = execute_query('SELECT * FROM devices ORDER BY created_at DESC')
-        return [cls._from_row(row) for row in rows]
+        """Obtiene todos los dispositivos - optimized with SQLAlchemy"""
+        try:
+            # Use SQLAlchemy ORM adapter for better performance
+            devices_data = DeviceORMAdapter.get_all()
+            devices = []
+            for device_data in devices_data:
+                # Handle potential missing fields
+                device_data = dict(device_data) if hasattr(device_data, 'keys') else device_data
+                devices.append(cls(**device_data))
+            return devices
+        except Exception as e:
+            # Fallback to legacy method
+            rows = execute_query('SELECT * FROM devices ORDER BY created_at DESC')
+            return [cls._from_row(row) for row in rows]
 
     @classmethod
     def get_by_id(cls, device_id):
-        """Obtiene un dispositivo por ID"""
-        rows = execute_query('SELECT * FROM devices WHERE id = ?', [device_id])
-        return cls._from_row(rows[0]) if rows else None
+        """Obtiene un dispositivo por ID - optimized with SQLAlchemy"""
+        try:
+            # Use SQLAlchemy ORM adapter for better performance
+            device_data = DeviceORMAdapter.get_by_id(device_id)
+            if device_data:
+                device_data = dict(device_data) if hasattr(device_data, 'keys') else device_data
+                return cls(**device_data)
+            return None
+        except Exception:
+            # Fallback to legacy method
+            rows = execute_query('SELECT * FROM devices WHERE id = ?', [device_id])
+            return cls._from_row(rows[0]) if rows else None
 
     @classmethod
     def get_by_reference(cls, reference):
@@ -334,7 +357,18 @@ class EncryptionManager:
         self.cipher = Fernet(self.key)
     
     def _get_or_create_key(self):
-        """Obtiene o crea la clave de encriptación"""
+        """Obtiene o crea la clave de encriptación.
+        Prioriza ENCRYPTION_KEY desde variables de entorno (base64 de Fernet).
+        Fallback a archivo local para desarrollo.
+        """
+        env_key = os.environ.get('ENCRYPTION_KEY')
+        if env_key:
+            # Asumimos que es una clave Fernet válida (base64 urlsafe de 32 bytes)
+            try:
+                return env_key.encode()
+            except Exception:
+                pass  # Fallback a archivo
+        
         key_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'encryption.key')
         
         if os.path.exists(key_path):
@@ -377,7 +411,8 @@ class Connection:
         self.is_active = is_active
         self.created_at = created_at
         self.updated_at = updated_at
-        self.encryption_manager = EncryptionManager()
+        # Use new SecretManager instead of legacy EncryptionManager
+        self.secret_manager = get_secret_manager()
 
     @classmethod
     def create(cls, name, description, type, host, port, endpoint, auth_type, 
@@ -385,10 +420,10 @@ class Connection:
         """Crea una nueva conexión"""
         instance = cls()
         
-        # Encriptar datos sensibles en auth_config
+        # Encrypt sensitive data in auth_config using new SecretManager
         encrypted_auth_config = None
         if auth_config:
-            encrypted_auth_config = instance._encrypt_auth_config(auth_config)
+            encrypted_auth_config = instance._encrypt_auth_config_secure(auth_config)
         
         connection_id = execute_insert('''
             INSERT INTO connections 
@@ -419,7 +454,7 @@ class Connection:
         
         for key, value in kwargs.items():
             if key == 'auth_config' and value:
-                value = json.dumps(self._encrypt_auth_config(value))
+                value = json.dumps(self._encrypt_auth_config_secure(value))
             elif key == 'connection_config' and value:
                 value = json.dumps(value)
             
@@ -436,38 +471,124 @@ class Connection:
         """Elimina la conexión"""
         execute_insert('DELETE FROM connections WHERE id = ?', [self.id])
 
-    def _encrypt_auth_config(self, auth_config):
-        """Encripta campos sensibles en auth_config"""
+    def _encrypt_auth_config_secure(self, auth_config):
+        """Encrypt sensitive fields in auth_config using SecretManager"""
         if not auth_config:
             return None
             
         encrypted_config = auth_config.copy()
         
-        # Campos que necesitan encriptación
-        sensitive_fields = ['password', 'token', 'key']
+        # Fields that need encryption
+        sensitive_fields = ['password', 'token', 'key', 'secret', 'api_key', 'client_secret']
         
         for field in sensitive_fields:
-            if field in encrypted_config:
-                encrypted_config[field] = self.encryption_manager.encrypt(encrypted_config[field])
+            if field in encrypted_config and encrypted_config[field]:
+                try:
+                    # Use new SecretManager for encryption
+                    encrypted_payload = encrypt_credential(encrypted_config[field])
+                    encrypted_config[field] = encrypted_payload
+                except Exception as e:
+                    # Log error but don't expose sensitive data
+                    import logging
+                    logging.error(f"Failed to encrypt field {field} for connection")
+                    raise RuntimeError("Failed to encrypt sensitive credential data")
         
         return encrypted_config
 
     def get_decrypted_auth_config(self):
-        """Obtiene auth_config con datos desencriptados"""
+        """Get auth_config with decrypted sensitive data"""
         if not self.auth_config:
             return None
             
-        config = json.loads(self.auth_config)
-        decrypted_config = config.copy()
+        try:
+            config = json.loads(self.auth_config)
+            decrypted_config = config.copy()
+            
+            # Fields that need decryption
+            sensitive_fields = ['password', 'token', 'key', 'secret', 'api_key', 'client_secret']
+            
+            for field in sensitive_fields:
+                if field in decrypted_config and isinstance(decrypted_config[field], dict):
+                    # Check if this is an encrypted payload from SecretManager
+                    if 'data' in decrypted_config[field] and 'version' in decrypted_config[field]:
+                        try:
+                            decrypted_value = decrypt_credential(decrypted_config[field])
+                            decrypted_config[field] = decrypted_value
+                        except Exception as e:
+                            # If decryption fails, try legacy format
+                            decrypted_config[field] = self._decrypt_legacy_field(decrypted_config[field])
+                    elif isinstance(decrypted_config[field], str):
+                        # Handle legacy encrypted strings
+                        decrypted_config[field] = self._decrypt_legacy_field(decrypted_config[field])
+            
+            return decrypted_config
+            
+        except Exception as e:
+            import logging
+            logging.error("Failed to decrypt auth_config (sensitive data not logged)")
+            raise RuntimeError("Failed to decrypt credential data")
+
+    def _decrypt_legacy_field(self, encrypted_value):
+        """Decrypt legacy encrypted field using old EncryptionManager"""
+        try:
+            # Try legacy decryption for backward compatibility
+            from cryptography.fernet import Fernet
+            import base64
+            import os
+            
+            # Get legacy key
+            key_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'encryption.key')
+            if os.path.exists(key_path):
+                with open(key_path, 'rb') as f:
+                    legacy_key = f.read()
+                cipher = Fernet(legacy_key)
+                return cipher.decrypt(base64.b64decode(encrypted_value.encode())).decode()
+            else:
+                # If no legacy key, return masked value
+                return '••••••'
+        except Exception:
+            return '••••••'
+
+    def to_dict(self, include_sensitive=False):
+        """Convierte la conexión a diccionario para JSON"""
+        result = {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'type': self.type,
+            'host': self.host,
+            'port': self.port,
+            'endpoint': self.endpoint,
+            'auth_type': self.auth_type,
+            'is_active': self.is_active,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
+        }
         
-        # Campos que necesitan desencriptación
-        sensitive_fields = ['password', 'token', 'key']
+        if include_sensitive:
+            # Only in authorized contexts: return decrypted data
+            result['auth_config'] = self.get_decrypted_auth_config()
+        else:
+            # Provide masked information for UI without exposing secrets
+            if self.auth_config:
+                try:
+                    raw_cfg = json.loads(self.auth_config)
+                    masked = {}
+                    sensitive_fields = ['password', 'token', 'key', 'secret', 'api_key', 'client_secret']
+                    
+                    for k, v in (raw_cfg.items() if isinstance(raw_cfg, dict) else []):
+                        if k in sensitive_fields and v:
+                            masked[k] = '••••••'
+                        else:
+                            masked[k] = v if isinstance(v, (bool, int)) else (v if v is None else str(v)[:10] + '...' if len(str(v)) > 10 else v)
+                    result['auth_config_masked'] = masked
+                except Exception:
+                    result['auth_config_masked'] = {'masked': True}
+
+        if self.connection_config:
+            result['connection_config'] = json.loads(self.connection_config)
         
-        for field in sensitive_fields:
-            if field in decrypted_config:
-                decrypted_config[field] = self.encryption_manager.decrypt(decrypted_config[field])
-        
-        return decrypted_config
+        return result
 
     @classmethod
     def _from_row(cls, row):
@@ -487,30 +608,6 @@ class Connection:
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
-
-    def to_dict(self, include_sensitive=False):
-        """Convierte la conexión a diccionario para JSON"""
-        result = {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'type': self.type,
-            'host': self.host,
-            'port': self.port,
-            'endpoint': self.endpoint,
-            'auth_type': self.auth_type,
-            'is_active': self.is_active,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at
-        }
-        
-        if include_sensitive:
-            result['auth_config'] = self.get_decrypted_auth_config()
-        
-        if self.connection_config:
-            result['connection_config'] = json.loads(self.connection_config)
-        
-        return result
 
 
 class ConnectionTest:

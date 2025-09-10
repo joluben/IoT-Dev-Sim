@@ -1,5 +1,9 @@
 from flask import Blueprint, request, jsonify
 from ..models import Device
+from ..pagination import PaginationHelper
+from ..database import get_db_session
+from ..sqlalchemy_models import DeviceORM as SQLDevice
+from ..optimized_queries import OptimizedQueries
 
 devices_bp = Blueprint('devices', __name__)
 
@@ -24,13 +28,86 @@ def create_device():
 
 @devices_bp.route('/devices', methods=['GET'])
 def get_devices():
-    """Obtener todos los dispositivos"""
+    """Obtener dispositivos con paginación optimizada"""
     try:
-        devices = Device.get_all()
-        return jsonify([device.to_dict() for device in devices])
+        # Extract pagination parameters
+        page, per_page = PaginationHelper.get_pagination_params(
+            request.args, 
+            default_per_page=20, 
+            max_per_page=100
+        )
+        
+        # Extract filter parameters
+        search = request.args.get('search', '').strip()
+        device_type = request.args.get('type', '').strip()
+        
+        # Use optimized query
+        try:
+            result = OptimizedQueries.get_devices_summary(
+                page=page,
+                per_page=per_page,
+                search=search if search else None,
+                device_type=device_type if device_type else None
+            )
+            
+            # Format response for pagination compatibility
+            return jsonify({
+                'items': result['items'],
+                'pagination': {
+                    'page': result['page'],
+                    'per_page': result['per_page'],
+                    'total': result['total'],
+                    'pages': result['pages']
+                }
+            })
+            
+        except Exception as optimized_error:
+            # Fallback to legacy approach if optimized query fails
+            devices = Device.get_all()
+            
+            # Apply search filter
+            if search:
+                search_lower = search.lower()
+                devices = [d for d in devices if (
+                    search_lower in d.name.lower() or
+                    search_lower in d.reference.lower() or
+                    search_lower in (d.description or '').lower()
+                )]
+            
+            # Apply type filter
+            if device_type:
+                devices = [d for d in devices if d.device_type == device_type]
+            
+            # Manual pagination for legacy approach
+            total = len(devices)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_devices = devices[start_idx:end_idx]
+            
+            return jsonify(PaginationHelper.create_pagination_response(
+                items=[device.to_dict() for device in paginated_devices],
+                total=total,
+                page=page,
+                per_page=per_page
+            ))
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/devices/unassigned', methods=['GET'])
+def get_unassigned_devices():
+    """Obtener dispositivos no asignados a proyectos (optimizado)"""
+    try:
+        # Use optimized query for better performance
+        devices = OptimizedQueries.get_unassigned_devices_summary()
+        return jsonify(devices)
+    except Exception as e:
+        # Fallback to legacy approach
+        try:
+            devices = Device.get_unassigned()
+            return jsonify([device.to_dict() for device in devices])
+        except Exception as fallback_error:
+            return jsonify({'error': str(fallback_error)}), 500
 
 @devices_bp.route('/devices/<int:device_id>', methods=['GET'])
 def get_device(device_id):

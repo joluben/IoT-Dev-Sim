@@ -3,22 +3,43 @@ from flask_cors import CORS
 from flask_sock import Sock
 import os
 import atexit
+import logging
+from dotenv import load_dotenv
 from .database import init_db
 from .routes.devices import devices_bp
 from .routes.upload import upload_bp
 from .routes.connections import connections_bp
 from .routes.transmissions import transmissions_bp
 from .routes.projects import projects_bp
+from .routes.security import security_bp
+from .routes.health import health_bp
+from .routes.auth_routes import auth_bp
 from .scheduler import init_scheduler
+from .secrets_mgmt.secret_manager import get_secret_manager
+from .startup_validation import validate_startup_configuration
+from .middleware.auth_middleware import create_auth_middleware
 
 def create_app():
+    # Load environment variables from .env for local development
+    load_dotenv()
+
+    # Validate startup configuration before initializing Flask app
+    print("🔍 Validating startup configuration...")
+    if not validate_startup_configuration(exit_on_failure=True):
+        raise RuntimeError("Startup validation failed - cannot initialize application")
+    
     app = Flask(__name__)
     sock = Sock(app)
     
-    # Configuración
-    app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB máximo
-    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), '..', 'uploads')
+    # Enhanced configuration with environment variable support
+    app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))
+    app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), '..', 'uploads')
     app.config['DATABASE_URL'] = os.getenv('DATABASE_URL', 'sqlite:///scheduler_jobs.db')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+    
+    # Validate critical configuration
+    if not app.config['SECRET_KEY']:
+        raise RuntimeError("SECRET_KEY environment variable is required")
     
     # Crear directorio de uploads si no existe
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -28,6 +49,20 @@ def create_app():
     
     # Inicializar base de datos
     init_db()
+    
+    # Initialize SecretManager early to ensure encryption system is ready
+    try:
+        secret_manager = get_secret_manager()
+        app.logger.info("SecretManager initialized successfully")
+        
+        # Validate secret manager health
+        health_status = secret_manager.get_health_status()
+        if not health_status.get('secret_provider', {}).get('available', False):
+            raise RuntimeError("Secret provider is not available")
+            
+    except Exception as e:
+        app.logger.error(f"Failed to initialize SecretManager: {e}")
+        raise RuntimeError("Critical security error: Cannot start without encryption system")
     
     # Configurar scheduler
     scheduler = init_scheduler(app)
@@ -41,12 +76,18 @@ def create_app():
     # Detener scheduler al finalizar el proceso (apagado limpio)
     atexit.register(lambda: hasattr(app, 'scheduler') and app.scheduler and app.scheduler.shutdown())
     
+    # Initialize authentication middleware
+    create_auth_middleware(app)
+    
     # Registrar blueprints
     app.register_blueprint(devices_bp, url_prefix='/api')
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(connections_bp)
     app.register_blueprint(transmissions_bp)
     app.register_blueprint(projects_bp)
+    app.register_blueprint(security_bp)
+    app.register_blueprint(health_bp)
+    app.register_blueprint(auth_bp)
 
     # Depuración: listar rutas registradas al iniciar la app
     try:
@@ -84,10 +125,15 @@ def create_app():
     
     # Ruta para servir frontend
     frontend_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'static')
+    locales_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'locales')
     
     @app.route('/')
     def serve_frontend():
         return send_from_directory(frontend_dir, 'index.html')
+    
+    @app.route('/locales/<path:path>')
+    def serve_locales(path):
+        return send_from_directory(locales_dir, path)
     
     @app.route('/<path:path>')
     def serve_static(path):
