@@ -6,7 +6,7 @@
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" width="150">
 </a>
 
-Aplicación web para gestión de dispositivos con importación y procesamiento de archivos CSV.
+DevSim es una aplicación diseñada para la simulación avanzada de señales a partir de ficheros CSV. Permite recrear entornos con múltiples dispositivos virtuales que emiten datos de forma controlada, adaptándose a las necesidades de cada escenario de prueba. El usuario puede definir la frecuencia de transmisión y seleccionar entre distintos protocolos de comunicación, como HTTPS y MQTT, lo que convierte a DevSim en una herramienta versátil para el desarrollo, validación e integración de sistemas conectados.
 
 ![Listado de dispositivos](./screenshots/image%20devices.jpg)
 ![Listado de conexiones](./screenshots/image%20connections.jpg)
@@ -55,6 +55,7 @@ devsim/
 │   ├── nginx.conf
 │   └── Dockerfile
 ├── data/
+├── .env
 ├── docker-compose.yml
 └── README.md
 ```
