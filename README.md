@@ -1,5 +1,11 @@
 # DevSim - Gestión de Dispositivos CSV
 
+🌐 [Español](./README.md) | [English](./README.en.md)
+
+<a href="https://www.buymeacoffee.com/joluben" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" width="150">
+</a>
+
 Aplicación web para gestión de dispositivos con importación y procesamiento de archivos CSV.
 
 ![Listado de dispositivos](./screenshots/image%20devices.jpg)
@@ -65,7 +71,6 @@ devsim/
 
 2. **Configurar variables de entorno (opcional)**:
    - Copia `.example.env` a `.env` y ajusta valores según necesidad.
-   - Variables clave: `SECRET_KEY`, `DATABASE_URL`, `MAX_CONTENT_LENGTH`, `UPLOAD_FOLDER`, `ENCRYPTION_KEY`.
 
 3. **Ejecutar con Docker Compose**:
    ```bash
@@ -148,3 +153,7 @@ devsim/
 
 MIT License
 Esta aplicación es completamente Open Source, puedes usarla, modificarla y distribuirla libremente.
+
+<a href="https://www.buymeacoffee.com/joluben" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="250">
+</a>
