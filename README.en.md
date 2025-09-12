@@ -6,7 +6,7 @@
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" width="150">
 </a>
 
-Web application for device management with CSV file import and processing.
+Web application for device management with CSV file import and processing.DevSim is an application designed for advanced signal simulation from CSV files. It allows you to recreate environments with multiple virtual devices that emit data in a controlled manner, adapting to the needs of each test scenario. Users can define the transmission frequency and select from different communication protocols, such as HTTPS and MQTT, making DevSim a versatile tool for the development, validation, and integration of connected systems.
 
 ![Device list](./screenshots/image%20devices.jpg)
 ![Connection list](./screenshots/image%20connections.jpg)
