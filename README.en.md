@@ -55,6 +55,7 @@ devsim/
 │   ├── nginx.conf
 │   └── Dockerfile
 ├── data/
+├── .env
 ├── docker-compose.yml
 └── README.md
 ```
