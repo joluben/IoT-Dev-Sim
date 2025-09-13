@@ -66,8 +66,8 @@ logs/
 Thumbs.db
 
 # Folders
-/.windsurf
-/.kiro
+.windsurf
+.kiro
 
 # Security: encryption keys (do not commit)
 /data
