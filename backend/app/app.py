@@ -34,7 +34,11 @@ def create_app():
     # Enhanced configuration with environment variable support
     app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))
     app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), '..', 'uploads')
-    app.config['DATABASE_URL'] = os.getenv('DATABASE_URL', 'sqlite:///scheduler_jobs.db')
+    # Robust default for scheduler DB under backend/data (absolute path)
+    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
+    os.makedirs(data_dir, exist_ok=True)
+    default_scheduler_db = f"sqlite:///{os.path.join(data_dir, 'scheduler_jobs.db')}"
+    app.config['DATABASE_URL'] = os.getenv('DATABASE_URL') or default_scheduler_db
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     
     # Validate critical configuration
