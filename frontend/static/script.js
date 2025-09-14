@@ -62,6 +62,67 @@ function normalizePaginatedData(response) {
     return []; // Return empty array if no data found
 }
 
+// --- Safe no-op implementations to avoid runtime errors and keep UI usable ---
+async function saveTransmissionConfig() {
+    try {
+        // Collect minimal fields if present
+        const typeEl = document.getElementById('device-type');
+        const freqEl = document.getElementById('transmission-frequency');
+        const connEl = document.getElementById('transmission-connection');
+        const enabledEl = document.getElementById('transmission-enabled');
+        const payload = {
+            device_type: typeEl ? typeEl.value : undefined,
+            frequency: freqEl ? Number(freqEl.value || 0) : undefined,
+            connection_id: connEl ? connEl.value : undefined,
+            enabled: enabledEl ? enabledEl.checked : undefined,
+        };
+        console.log('💾 saveTransmissionConfig()', payload);
+        showNotification('Configuración de transmisión guardada (simulada)', 'success');
+    } catch (e) {
+        console.error('saveTransmissionConfig error', e);
+        showNotification('Error guardando configuración', 'error');
+    }
+}
+
+function pauseTransmissionUI() {
+    console.log('⏸️ pauseTransmissionUI()');
+    showNotification('Transmisión pausada (simulada)', 'info');
+}
+
+function resumeTransmissionUI() {
+    console.log('▶️ resumeTransmissionUI()');
+    showNotification('Transmisión reanudada (simulada)', 'info');
+}
+
+function stopTransmissionUI() {
+    console.log('⏹️ stopTransmissionUI()');
+    const stopBtn = document.getElementById('btn-stop-transmission');
+    if (stopBtn) stopBtn.disabled = true;
+    showNotification('Transmisión detenida (simulada)', 'info');
+}
+
+function hideTransmitModal() {
+    const modal = document.getElementById('transmit-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmTransmit() {
+    try {
+        console.log('📤 confirmTransmit()');
+        await transmitNowUI();
+        hideTransmitModal();
+    } catch (e) {
+        console.error('confirmTransmit error', e);
+    }
+}
+
+function initializeHistoryFilters() {
+    const statusSel = document.getElementById('history-filter-status');
+    const connSel = document.getElementById('history-filter-connection');
+    if (statusSel) statusSel.addEventListener('change', () => refreshTransmissionHistory && refreshTransmissionHistory());
+    if (connSel) connSel.addEventListener('change', () => refreshTransmissionHistory && refreshTransmissionHistory());
+}
+
 // API Functions
 const API = {
     async createDevice(data) {
@@ -82,8 +143,17 @@ const API = {
         if (search) params.append('search', search);
         if (type) params.append('type', type);
         
+        console.log('🌐 Fetching devices from:', `${API_BASE}/devices?${params}`);
         const response = await fetch(`${API_BASE}/devices?${params}`);
-        return response.json();
+        
+        if (!response.ok) {
+            console.error('❌ API response not ok:', response.status, response.statusText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Raw API data:', data);
+        return data;
     },
 
     async getDevice(id) {
@@ -352,6 +422,37 @@ const API = {
 };
 
 // Utility Functions
+function formatDate(value) {
+    try {
+        if (!value) return '';
+        // If value is number-like, treat as epoch seconds or ms
+        let d;
+        if (typeof value === 'number') {
+            // Assume seconds if too small to be ms
+            d = new Date(value < 10_000_000_000 ? value * 1000 : value);
+        } else if (typeof value === 'string') {
+            // Some backends return 'YYYY-MM-DD HH:MM:SS'
+            // Replace space with 'T' to help Date parse as local time
+            const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+            d = new Date(normalized);
+            if (isNaN(d.getTime())) {
+                // Fallback: try parsing as ISO without timezone
+                d = new Date(Date.parse(value));
+            }
+        } else if (value instanceof Date) {
+            d = value;
+        }
+        if (!d || isNaN(d.getTime())) return '';
+        // Locale formatting with date and time
+        return d.toLocaleString(undefined, {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+        });
+    } catch (e) {
+        console.error('formatDate error:', e, value);
+        return '';
+    }
+}
 
 // Helpers for connection scheme/type display
 function getHttpSchemeForConnection(conn) {
@@ -375,6 +476,7 @@ function getHttpSchemeForConnection(conn) {
 
 function getConnectionDisplayLabel(conn) {
     if (conn.type === 'MQTT') return 'MQTT';
+    if (conn.type === 'KAFKA') return 'Kafka';
     const scheme = getHttpSchemeForConnection(conn);
     return scheme === 'https' ? 'HTTPS' : 'HTTP';
 }
@@ -465,17 +567,24 @@ async function loadTransmissionHistory(deviceId) {
     try {
         const list = document.getElementById('transmission-history-list');
         if (!list) return;
+        
         list.innerHTML = '<div class="loading">Cargando historial...</div>';
+        
         const history = await API.getTransmissionHistory(deviceId);
+        
         lastTransmissionHistory = Array.isArray(history) ? history : [];
+        
         if (!lastTransmissionHistory || lastTransmissionHistory.length === 0) {
             list.innerHTML = '<div class="loading">Sin transmisiones</div>';
             return;
         }
+        
         populateHistoryConnectionFilter(lastTransmissionHistory);
         attachHistoryFilterListeners();
         renderTransmissionHistory();
+        
     } catch (error) {
+        // Error loading transmission history
         const list = document.getElementById('transmission-history-list');
         if (list) list.innerHTML = '<div class="loading">Error cargando historial</div>';
     }
@@ -484,34 +593,35 @@ async function loadTransmissionHistory(deviceId) {
 function renderTransmissionHistory() {
     const list = document.getElementById('transmission-history-list');
     if (!list) return;
-
+    
     const statusFilter = document.getElementById('history-filter-status');
     const connFilter = document.getElementById('history-filter-connection');
-
+    
     let items = lastTransmissionHistory.slice();
-
+    
     // Apply status filter
     const statusVal = statusFilter ? statusFilter.value : '';
     if (statusVal) {
         items = items.filter(i => i.status === statusVal);
     }
-
+    
     // Apply connection filter
     const connVal = connFilter ? connFilter.value : '';
     if (connVal) {
         const connId = Number(connVal);
         items = items.filter(i => Number(i.connection_id) === connId);
     }
-
+    
     if (items.length === 0) {
-        list.innerHTML = '<div class="loading">Sin transmisiones</div>';
+        list.innerHTML = '<div class="loading">No hay transmisiones que coincidan con los filtros</div>';
         return;
     }
-
+    
     list.innerHTML = items.map(item => {
         const ts = item.timestamp || item.transmission_time || item.sent_at || item.created_at;
         const when = ts ? new Date(ts).toLocaleString() : '';
         const statusCls = item.status ? item.status.toLowerCase() : '';
+        
         return `
             <div class="history-item ${statusCls}">
                 <div class="history-info">
@@ -560,11 +670,15 @@ function loadHistoryPage(direction) {
 function populateHistoryConnectionFilter(historyItems) {
     const select = document.getElementById('history-filter-connection');
     if (!select) return;
+    
     const prevValue = select.value;
     const uniqueConnIds = [...new Set(historyItems.map(i => i.connection_id).filter(Boolean))];
+    
     const options = ['<option value="">Todas las conexiones</option>']
         .concat(uniqueConnIds.map(id => `<option value="${id}">Conexión ${id}</option>`));
+    
     select.innerHTML = options.join('');
+    
     // Restore previous selection if still present
     if (prevValue && uniqueConnIds.includes(Number(prevValue))) {
         select.value = prevValue;
@@ -574,6 +688,7 @@ function populateHistoryConnectionFilter(historyItems) {
 function attachHistoryFilterListeners() {
     const statusFilter = document.getElementById('history-filter-status');
     const connFilter = document.getElementById('history-filter-connection');
+    
     if (statusFilter && !statusFilter._listenerAttached) {
         statusFilter.addEventListener('change', renderTransmissionHistory);
         statusFilter._listenerAttached = true;
@@ -638,8 +753,9 @@ async function loadProjects(page = 1, perPage = 20, search = '', active = null, 
                     </div>    
                 </div>
                 <div class="project-actions">
-                    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); editProject(${project.id})">✏️ ${window.i18n.t('common.actions.edit')}</button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(${project.id})">🗑️ ${window.i18n.t('common.actions.delete')}</button>
+                    <button class="btn btn-primary btn-small" onclick="showProjectDetail(${project.id})">${window.i18n.t('common.actions.view_details')}</button>
+                    <button class="btn btn-secondary btn-small" onclick="editProject(${project.id})">${window.i18n.t('common.actions.edit')}</button>
+                    <button class="btn btn-danger btn-small" onclick="deleteProject(${project.id})">${window.i18n.t('common.actions.delete')}</button>
                 </div>
             </div>
         `).join('');
@@ -828,8 +944,8 @@ async function loadProjectDevices(projectId) {
                     <span>${device.csv_data ? 'Datos cargados' : 'Sin datos CSV'}</span>
                 </div>
                 <div class="device-actions" onclick="event.stopPropagation()">
-                    <button class="btn btn-sm btn-info" onclick="viewDevice(${device.id})">${window.i18n.t('common.actions.view_details')}</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeDeviceFromProject(${device.id})">${window.i18n.t('projects.actions.remove_devices')}</button>
+                    <button class="btn btn-primary btn-small" onclick="viewDevice(${device.id})">${window.i18n.t('common.actions.view_details')}</button>
+                    <button class="btn btn-danger btn-small" onclick="removeDeviceFromProject(${device.id})">${window.i18n.t('projects.actions.remove_devices')}</button>
                 </div>
             </div>
         `).join('');
@@ -1246,97 +1362,33 @@ function hideOperationResultsModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// Paused state persistence (per-device) in sessionStorage
-function getPausedState(deviceId) {
-    const key = `devsim:paused:${deviceId}`;
-    return sessionStorage.getItem(key) === 'true';
-}
+// ============================================================================
+// DEVICE MANAGEMENT FUNCTIONS
+// ============================================================================
 
-function setPausedState(deviceId, paused) {
-    const key = `devsim:paused:${deviceId}`;
-    if (paused) {
-        sessionStorage.setItem(key, 'true');
-    } else {
-        sessionStorage.removeItem(key);
-    }
-}
-
-function updateTransmissionControls({ enabled, paused, deviceType }) {
-    const transmitBtn = document.getElementById('btn-transmit-now');
-    const pauseBtn = document.getElementById('btn-pause-transmission');
-    const resumeBtn = document.getElementById('btn-resume-transmission');
-    const stopBtn = document.getElementById('btn-stop-transmission');
-
-    if (!transmitBtn || !pauseBtn || !resumeBtn || !stopBtn) return;
-
-    // Allow manual "Transmitir ahora" when INACTIVE or PAUSED; disable when automatic is ACTIVE
-    transmitBtn.disabled = !!(enabled && !paused);
-
-    // Running (enabled = true)
-    if (enabled) {
-        pauseBtn.style.display = 'inline-block';
-        resumeBtn.style.display = 'none';
-        pauseBtn.disabled = false;
-        stopBtn.disabled = false;
-        return;
-    }
-
-    // Not running: paused vs stopped
-    if (paused) {
-        // Paused: can resume or stop, transmit now enabled
-        transmitBtn.disabled = false;
-        pauseBtn.style.display = 'none';
-        resumeBtn.style.display = 'inline-block';
-        resumeBtn.disabled = false;
-        stopBtn.disabled = false;
-    } else {
-        // Stopped: transmit now enabled, stop disabled, hide resume/pause
-        transmitBtn.disabled = false;
-        pauseBtn.style.display = 'none';
-        resumeBtn.style.display = 'none';
-        stopBtn.disabled = true;
-    }
-}
-
-function showView(viewName) {
-    // Hide all views
-    Object.values(views).forEach(view => {
-        if (view) view.classList.remove('active');
-    });
-    
-    // Show selected view
-    if (views[viewName]) {
-        views[viewName].classList.add('active');
-    }
-    
-    // Update navigation
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = document.getElementById(`nav-${viewName.replace('List', 's').replace('Detail', '').replace('Form', '').replace('Create', '')}`);
-    if (activeBtn) activeBtn.classList.add('active');
-}
-
-function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-// Device Functions
+// Device navigation and loading
 async function loadDevices(page = 1, perPage = 20, search = '', type = '') {
     try {
+        console.log('🔄 Loading devices...');
+        
+        // Check if elements exist
+        if (!elements.devicesLoading) {
+            console.error('❌ devicesLoading element not found');
+            return;
+        }
+        
         elements.devicesLoading.style.display = 'block';
         
         // Get paginated devices data
+        console.log('📡 Calling API.getDevices...');
         const response = await API.getDevices(page, perPage, search, type);
+        console.log('📦 API response:', response);
         
         // Handle both paginated and legacy response formats
         if (response.items) {
             // Paginated response
             devices = response.items;
+            console.log('✅ Found paginated devices:', devices.length);
             
             // Update pagination component
             if (devicesPagination) {
@@ -1346,15 +1398,22 @@ async function loadDevices(page = 1, perPage = 20, search = '', type = '') {
         } else if (Array.isArray(response)) {
             // Legacy response format
             devices = response;
+            console.log('✅ Found legacy devices:', devices.length);
         } else {
+            console.error('❌ Unexpected response format:', response);
             throw new Error('Formato de respuesta inesperado');
         }
         
+        console.log('🎨 Rendering devices...');
         renderDevices(devices);
+        console.log('✅ Devices loaded successfully');
     } catch (error) {
+        console.error('❌ Error loading devices:', error);
         showNotification('Error al cargar dispositivos: ' + error.message, 'error');
     } finally {
-        elements.devicesLoading.style.display = 'none';
+        if (elements.devicesLoading) {
+            elements.devicesLoading.style.display = 'none';
+        }
     }
 }
 
@@ -1877,6 +1936,33 @@ function setActiveNav(section) {
     document.getElementById(`nav-${section}`).classList.add('active');
 }
 
+// View management
+function showView(target) {
+    // Map friendly aliases to actual DOM view IDs
+    const aliasMap = {
+        devicesList: 'devices-list-view',
+        connectionsList: 'connections-list-view',
+        projectsList: 'projects-list-view',
+        connectionForm: 'connection-form-view',
+        connectionDetail: 'connection-detail-view',
+        deviceDetail: 'device-detail-view',
+        createDevice: 'create-device-view',
+        projectForm: 'project-form-view',
+        projectDetail: 'project-detail-view'
+    };
+    const viewId = aliasMap[target] || target; // allow passing real ID too
+
+    // Hide all views
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+    const el = document.getElementById(viewId);
+    if (!el) {
+        console.error('showView: view not found ->', viewId);
+        return;
+    }
+    el.classList.add('active');
+}
+
 // Connection functions
 async function loadConnections(page = 1, perPage = 20, search = '', type = '', active = null) {
     const grid = document.getElementById('connections-grid');
@@ -2097,6 +2183,7 @@ async function editConnection(id) {
                     const headersField = document.getElementById('connection-headers');
                     if (headersField) headersField.value = JSON.stringify(connection.additional_headers, null, 2);
                 }
+                
                 // Prefill HTTP/HTTPS options if available
                 const cfg = connection.connection_config || {};
                 const sslCheckbox = document.getElementById('connection-ssl');
@@ -2134,11 +2221,9 @@ async function editConnection(id) {
                 updateTestButtonState();
                 
             } catch (domError) {
-                // Error filling form fields
                 showNotification('Error llenando formulario: ' + domError.message, 'error');
             }
         }, 100);
-        
         
     } catch (error) {
         showNotification('Error cargando conexión: ' + error.message, 'error');
@@ -2149,6 +2234,12 @@ function handleConnectionTypeChange() {
     const type = document.getElementById('connection-type').value;
     const portField = document.getElementById('connection-port');
     const advancedConfig = document.getElementById('advanced-config');
+    const httpsOptions = document.querySelector('.checkbox-container');
+    const kafkaOptions = document.getElementById('kafka-options');
+
+    // Hide all type-specific options first
+    if (httpsOptions) httpsOptions.style.display = 'none';
+    if (kafkaOptions) kafkaOptions.style.display = 'none';
     
     if (type === 'MQTT') {
         portField.placeholder = '1883';
@@ -2157,7 +2248,13 @@ function handleConnectionTypeChange() {
     } else if (type === 'HTTPS') {
         portField.placeholder = '443';
         document.getElementById('connection-endpoint').placeholder = '/api/data';
+        if (httpsOptions) httpsOptions.style.display = 'block';
         showAdvancedFields('https');
+    } else if (type === 'KAFKA') {
+        portField.placeholder = '9092';
+        document.getElementById('connection-endpoint').placeholder = 'devsim-topic';
+        if (kafkaOptions) kafkaOptions.style.display = 'block';
+        advancedConfig.style.display = 'none'; // No advanced fields for Kafka yet
     } else {
         advancedConfig.style.display = 'none';
     }
@@ -2353,6 +2450,10 @@ function updateConfigPreview() {
         if (verifySslCheckbox) {
             config.verify_ssl = !!verifySslCheckbox.checked;
         }
+    } else if (config.type === 'KAFKA') {
+        // Preview mapping for Kafka using existing generic fields
+        // host => bootstrap servers, endpoint => topic
+        config.client_id = `devsim_${Date.now()}`; // preview default
     }
     
     // Add auth config based on type
@@ -2442,6 +2543,10 @@ async function handleConnectionSubmit() {
             connectionConfig.timeout = parseInt(formData.get('timeout')) || 30;
             connectionConfig.verify_ssl = formData.has('verify_ssl');
             connectionConfig.ssl = formData.has('ssl');
+        } else if (connectionData.type === 'KAFKA') {
+            // Map generic form fields to Kafka semantics
+            // host holds bootstrap servers, endpoint holds topic
+            connectionConfig.client_id = formData.get('client_id') || 'devsim-producer';
         }
         
         connectionData.connection_config = connectionConfig;
@@ -2642,76 +2747,6 @@ async function loadTransmissionConfig(deviceId) {
     }
 }
 
-// ...
-async function saveTransmissionConfig() {
-    const deviceType = document.getElementById('device-type').value;
-    const frequency = parseInt(document.getElementById('transmission-frequency').value);
-    const enabled = document.getElementById('transmission-enabled').checked;
-    const connectionId = document.getElementById('transmission-connection').value;
-    const includeDeviceId = document.getElementById('include-device-id')?.checked || false;
-    
-    try {
-        const response = await fetch(`${API_BASE}/devices/${currentDevice.id}/transmission-config`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                device_type: deviceType,
-                transmission_frequency: frequency,
-                transmission_enabled: enabled,
-                connection_id: connectionId || null,
-                include_device_id_in_payload: includeDeviceId
-            })
-        });
-        
-        if (response.ok) {
-            const updatedDevice = await response.json();
-            currentDevice = updatedDevice;
-            showNotification('✅ Configuración guardada correctamente', 'success');
-            
-            // Persist user selection locally as a UI preference
-            const persistKey = `device_last_connection_${currentDevice.id}`;
-            if (connectionId) localStorage.setItem(persistKey, connectionId); else localStorage.removeItem(persistKey);
-
-            // Update sensor controls visibility
-            const sensorControls = document.getElementById('sensor-controls');
-            if (deviceType === 'Sensor') {
-                sensorControls.style.display = 'block';
-                document.getElementById('current-row-index').textContent = updatedDevice.current_row_index || 0;
-            } else {
-                sensorControls.style.display = 'none';
-            }
-
-            // Update transmission status indicator based on actual device state
-            updateTransmissionStatusIndicator(updatedDevice);
-            
-            // Update controls without auto-starting transmission
-            updateTransmissionControls({
-                enabled: !!updatedDevice.transmission_enabled,
-                paused: !!updatedDevice.transmission_paused,
-                deviceType
-            });
-
-            // If enabled and a connection is selected, start automatic transmission now
-            if (enabled && connectionId) {
-                try {
-                    await transmissionAPI.startTransmission(currentDevice.id, connectionId);
-                    showNotification('🚀 Transmisión automática iniciada', 'success');
-                    // Refresh config/state from backend to reflect ACTIVE/PAUSED and next run time
-                    await loadTransmissionConfig(currentDevice.id);
-                    await loadTransmissionHistory(currentDevice.id);
-                } catch (e) {
-                    showNotification('❌ Error iniciando transmisión automática: ' + e.message, 'error');
-                }
-            }
-        } else {
-            showNotification('❌ Error guardando configuración', 'error');
-        }
-        
-    } catch (error) {
-        showNotification('Error: ' + error.message, 'error');
-    }
-}
-
 // Update transmission status indicator
 function updateTransmissionStatusIndicator(device) {
     const indicator = document.getElementById('transmission-state-indicator');
@@ -2735,6 +2770,21 @@ function updateTransmissionStatusIndicator(device) {
         indicator.classList.add('state-inactive');
         stateText.textContent = 'Inactivo';
     }
+}
+
+// Toggle transmission control buttons and checkbox based on state
+function updateTransmissionControls(state = {}) {
+    const { enabled = false, paused = false } = state;
+    const btnPause = document.getElementById('btn-pause-transmission');
+    const btnResume = document.getElementById('btn-resume-transmission');
+    const btnStop = document.getElementById('btn-stop-transmission');
+    const checkbox = document.getElementById('transmission-enabled');
+
+    if (checkbox) checkbox.checked = !!enabled;
+
+    if (btnPause) btnPause.style.display = enabled && !paused ? 'inline-block' : 'none';
+    if (btnResume) btnResume.style.display = enabled && paused ? 'inline-block' : 'none';
+    if (btnStop) btnStop.disabled = !enabled;
 }
 
 // Load connections into transmission selector
@@ -2981,7 +3031,7 @@ async function exportTransmissionHistory() {
         a.download = `transmission-history-${currentDevice.name}-${new Date().toISOString().split('T')[0]}.csv`;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
+        a.remove();
         window.URL.revokeObjectURL(url);
         
         showNotification('✅ Historial exportado exitosamente', 'success');
@@ -3447,13 +3497,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Wait for Keycloak to initialize before loading data
         if (window.keycloakAuth && window.keycloakAuth.config?.enabled) {
-            // Wait for authentication to be ready
+            // Wait for authentication to be ready with timeout
             await new Promise(resolve => {
+                let attempts = 0;
+                const maxAttempts = 50; // 5 seconds timeout
+                
                 const checkAuth = () => {
-                    if (window.keycloakAuth.isAuthenticated() || !window.keycloakAuth.config?.enabled) {
+                    attempts++;
+                    if (window.keycloakAuth.isAuthenticated() || !window.keycloakAuth.config?.enabled || attempts >= maxAttempts) {
                         resolve();
                     } else {
-                        // Check if we need to redirect to login
                         setTimeout(checkAuth, 100);
                     }
                 };
@@ -3462,11 +3515,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         // Initialize the rest of the application only after auth is ready
+        console.log('🚀 Starting app initialization...');
         await initializeApp();
         
         console.log('✅ Device Simulator initialized successfully');
     } catch (error) {
         console.error('❌ Error initializing Device Simulator:', error);
+        console.error('Stack trace:', error.stack);
         showNotification('Error al inicializar la aplicación', 'error');
     }
 });
@@ -3657,33 +3712,54 @@ function updateAuthenticationUI() {
 
 // Initialize the main application
 async function initializeApp() {
-    // Initialize authentication first
-    initializeAuthentication();
-    
-    // Initialize sidebar navigation
-    initializeDefaultNavigation();
-    
-    // Initialize pagination components
-    initializePagination();
-    
-    // Load initial data
-    await loadDevices();
-    await loadConnections();
-    
-    // Initialize forms and event listeners
-    initializeEventListeners();
-    
-    // Initialize transmission controls
-    initializeTransmissionControls();
-    
-    // Initialize transmission API if available
-    if (typeof TransmissionAPI !== 'undefined') {
-        transmissionAPI = new TransmissionAPI(API_BASE);
-    }
-    
-    // Initialize real-time monitoring if available
-    if (typeof RealtimeMonitor !== 'undefined') {
-        realtimeMonitor = new RealtimeMonitor();
-        realtimeMonitor.connect();
+    try {
+        console.log('🔧 Initializing authentication...');
+        // Initialize authentication first
+        initializeAuthentication();
+        
+        console.log('🧭 Initializing navigation...');
+        // Initialize sidebar navigation
+        initializeDefaultNavigation();
+        
+        console.log('📄 Initializing pagination...');
+        // Initialize pagination components
+        initializePagination();
+        
+        console.log('📊 Loading initial data...');
+        // Load initial data
+        await loadDevices();
+        await loadConnections();
+        
+        console.log('🎛️ Initializing event listeners...');
+        // Initialize forms and event listeners
+        initializeEventListeners();
+        
+        console.log('📡 Initializing transmission controls...');
+        // Initialize transmission controls
+        initializeTransmissionControls();
+        
+        console.log('🔌 Checking for transmission API...');
+        // Initialize transmission API if available
+        if (typeof TransmissionAPI !== 'undefined') {
+            transmissionAPI = new TransmissionAPI(API_BASE);
+            console.log('✅ TransmissionAPI initialized');
+        } else {
+            console.log('⚠️ TransmissionAPI not available');
+        }
+        
+        console.log('📡 Checking for real-time monitoring...');
+        // Initialize real-time monitoring if available
+        if (typeof RealtimeMonitor !== 'undefined') {
+            realtimeMonitor = new RealtimeMonitor();
+            realtimeMonitor.connect();
+            console.log('✅ RealtimeMonitor initialized');
+        } else {
+            console.log('⚠️ RealtimeMonitor not available');
+        }
+        
+        console.log('✅ App initialization completed');
+    } catch (error) {
+        console.error('❌ Error in initializeApp:', error);
+        throw error; // Re-throw to be caught by the main error handler
     }
 }

@@ -6,7 +6,7 @@
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" width="150">
 </a>
 
-Web application for device management with CSV file import and processing.DevSim is an application designed for advanced signal simulation from CSV files. It allows you to recreate environments with multiple virtual devices that emit data in a controlled manner, adapting to the needs of each test scenario. Users can define the transmission frequency and select from different communication protocols, such as HTTPS and MQTT, making DevSim a versatile tool for the development, validation, and integration of connected systems.
+Web application for device management with CSV file import and processing. DevSim is an application designed for advanced signal simulation from CSV files. It allows you to recreate environments with multiple virtual devices that emit data in a controlled manner, adapting to the needs of each test scenario. Users can define the transmission frequency and select from different communication protocols, such as HTTPS, MQTT, and Kafka, making DevSim a versatile tool for the development, validation, and integration of connected systems.
 
 ![Device list](./screenshots/image%20devices.jpg)
 ![Connection list](./screenshots/image%20connections.jpg)
@@ -17,7 +17,7 @@ Web application for device management with CSV file import and processing.DevSim
 - **Bulk device duplication**: Duplicate 1–50 copies with incremental names and unique references  
 - **CSV Import**: Upload with validation (size, format, encoding) and preview (header + 5 rows)  
 - **JSON/CSV Preview**: Side-by-side view with readable formatting  
-- **External connections**: MQTT and HTTPS with authentication NONE, USER_PASS, TOKEN, and API_KEY  
+- **External connections**: MQTT, HTTPS, and Kafka with authentication NONE, USER_PASS, TOKEN, and API_KEY  
 - **Automatic transmissions**: Scheduling with APScheduler (WebApp: full dataset, Sensor: one row per send)  
 - **Manual transmission**: On-demand sending per connection  
 - **i18n**: ES/EN translations served from `frontend/locales/`  
@@ -29,7 +29,7 @@ Web application for device management with CSV file import and processing.DevSim
 
 - **Backend**: Flask 2.x, SQLAlchemy 1.4, APScheduler 3.10, Flask-CORS, Flask-Sock (WebSocket)  
 - **Database**: SQLite (data + scheduler)  
-- **Connectivity**: paho-mqtt, requests, cryptography (secrets management)  
+- **Connectivity**: paho-mqtt, confluent-kafka, requests, cryptography (secrets management)  
 - **Frontend**: HTML5, CSS3, JavaScript (vanilla); SPA served by Nginx in a container  
 - **Internationalization**: JSON files in `frontend/locales/`  
 - **Containerization**: Docker and Docker Compose, Nginx as reverse proxy for frontend  
@@ -146,7 +146,7 @@ devsim/
 2. **Import CSV**: In the device detail, drag CSV file or select it.  
 3. **Preview**: Review generated CSV and JSON tables.  
 4. **Save**: Confirm saving data into the database.  
-5. **Transmit**: Configure connection (MQTT/HTTPS) and launch manual or automatic transmission.  
+5. **Transmit**: Configure connection (MQTT/HTTPS/Kafka) and launch manual or automatic transmission.  
 
 ## License
 
