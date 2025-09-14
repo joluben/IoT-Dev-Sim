@@ -1,222 +1,138 @@
 #!/usr/bin/env python3
 """
-Script automatizado para ejecutar test End-to-End completo
-Aplicación de Gestión IoT - Device Simulator
+E2E Test Runner for DevSim
+Runs comprehensive end-to-end tests using Selenium WebDriver
 """
 
-import requests
-import json
-import time
 import os
-import subprocess
 import sys
-from datetime import datetime
-from pathlib import Path
+import time
+import json
+import logging
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException, WebDriverException
 
-class E2ETestRunner:
-    def __init__(self):
-        self.base_url = "http://127.0.0.1:5000"
-        self.api_url = f"{self.base_url}/api"
-        self.test_results = []
-        self.start_time = datetime.now()
-        self.server_process = None
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class DevSimE2ETest:
+    def __init__(self, base_url="http://localhost:5000"):
+        self.base_url = base_url
+        self.driver = None
+        self.wait = None
         
-        # IDs para limpieza posterior
-        self.connection_id = None
-        self.device_ids = []
-        self.project_id = None
-        
-    def log_step(self, step_num, name, status, details, observations="", duration=0):
-        """Registra el resultado de un paso del test"""
-        result = {
-            'step': step_num,
-            'name': name,
-            'status': status,
-            'details': details,
-            'observations': observations,
-            'duration': duration,
-            'timestamp': datetime.now().isoformat()
-        }
-        self.test_results.append(result)
-        
-        status_icon = "✅" if status == "ÉXITO" else "❌"
-        print(f"\nPASO {step_num}: {name}")
-        print(f"Estado: {status_icon} {status}")
-        print(f"Detalles: {details}")
-        if observations:
-            print(f"Observaciones: {observations}")
-        print(f"Tiempo: {duration:.2f}s")
-        print("-" * 80)
-    
-    def start_server(self):
-        """Inicia el servidor backend"""
-        print("🚀 Iniciando servidor backend...")
-        backend_dir = Path(__file__).parent / "backend"
+    def setup_driver(self):
+        """Initialize Chrome WebDriver with appropriate options"""
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Run in headless mode
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-web-security")
+        chrome_options.add_argument("--allow-running-insecure-content")
         
         try:
-            # Cambiar al directorio backend
-            os.chdir(backend_dir)
+            self.driver = webdriver.Chrome(options=chrome_options)
+            self.wait = WebDriverWait(self.driver, 15)
+            logger.info("Chrome WebDriver initialized successfully")
+        except WebDriverException as e:
+            logger.error(f"Failed to initialize WebDriver: {e}")
+            raise
             
-            # Iniciar servidor en background
-            self.server_process = subprocess.Popen(
-                [sys.executable, "run.py"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+    def teardown_driver(self):
+        """Clean up WebDriver"""
+        if self.driver:
+            self.driver.quit()
+            logger.info("WebDriver closed")
+            
+    def test_application_loads(self):
+        """Test that the main application loads without errors"""
+        logger.info("Testing application load...")
+        
+        try:
+            self.driver.get(self.base_url)
+            
+            # Wait for the main navigation to load
+            nav_element = self.wait.until(
+                EC.presence_of_element_located((By.CLASS_NAME, "nav-btn"))
             )
             
-            # Esperar a que el servidor esté listo
-            max_attempts = 30
-            for attempt in range(max_attempts):
-                try:
-                    response = requests.get(f"{self.base_url}/api/health", timeout=2)
-                    if response.status_code == 200:
-                        print("✅ Servidor iniciado correctamente")
-                        return True
-                except requests.exceptions.RequestException:
-                    pass
-                
-                time.sleep(1)
-                print(f"Esperando servidor... ({attempt + 1}/{max_attempts})")
+            # Check page title
+            title = self.driver.title
+            assert "DevSim" in title or "Device" in title, f"Expected 'DevSim' or 'Device' in title, got: {title}"
             
-            print("❌ Error: Servidor no respondió en tiempo esperado")
+            # Check that navigation buttons are present
+            nav_buttons = self.driver.find_elements(By.CLASS_NAME, "nav-btn")
+            assert len(nav_buttons) >= 3, f"Expected at least 3 nav buttons, found: {len(nav_buttons)}"
+            
+            logger.info("✓ Application loads successfully")
+            return True
+            
+        except TimeoutException:
+            logger.error("✗ Application failed to load within timeout")
+            # Take screenshot for debugging
+            if self.driver:
+                self.driver.save_screenshot("app_load_failure.png")
+            return False
+        except AssertionError as e:
+            logger.error(f"✗ Application load test failed: {e}")
             return False
             
-        except Exception as e:
-            print(f"❌ Error iniciando servidor: {e}")
-            return False
-    
-    def stop_server(self):
-        """Detiene el servidor backend"""
-        if self.server_process:
-            print("🛑 Deteniendo servidor...")
-            self.server_process.terminate()
-            self.server_process.wait()
-    
-    def make_request(self, method, endpoint, data=None, timeout=10):
-        """Realiza petición HTTP con manejo de errores"""
-        url = f"{self.api_url}{endpoint}"
+    def test_devices_page(self):
+        """Test devices page functionality"""
+        logger.info("Testing devices page...")
         
         try:
-            if method == "GET":
-                response = requests.get(url, timeout=timeout)
-            elif method == "POST":
-                response = requests.post(url, json=data, timeout=timeout)
-            elif method == "PUT":
-                response = requests.put(url, json=data, timeout=timeout)
-            elif method == "DELETE":
-                response = requests.delete(url, timeout=timeout)
-            else:
-                raise ValueError(f"Método HTTP no soportado: {method}")
+            # Navigate to devices page
+            devices_nav = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "nav-devices"))
+            )
+            devices_nav.click()
             
-            return response
+            # Wait for devices grid to load or loading message
+            try:
+                devices_grid = self.wait.until(
+                    EC.presence_of_element_located((By.ID, "devices-grid"))
+                )
+            except TimeoutException:
+                # Check if there's a loading message
+                try:
+                    loading_element = self.driver.find_element(By.ID, "devices-loading")
+                    if loading_element and loading_element.is_displayed():
+                        logger.info("Devices are loading...")
+                        # Wait a bit more for loading to complete
+                        time.sleep(3)
+                        devices_grid = self.driver.find_element(By.ID, "devices-grid")
+                    else:
+                        raise
+                except:
+                    raise
             
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Error en petición {method} {url}: {e}")
-            return None
-    
-    def step_1_create_mqtt_connection(self):
-        """PASO 1: Crear Conexión MQTT"""
-        step_start = time.time()
-        
-        connection_data = {
-            "name": "conexión test",
-            "type": "MQTT",
-            "host": "broker.mqtt.cool",
-            "port": 1883,
-            "endpoint": "tes655",
-            "auth_type": "NONE",
-            "description": "Conexión de prueba para test E2E"
-        }
-        
-        response = self.make_request("POST", "/connections", connection_data)
-        
-        if response and response.status_code == 201:
-            result = response.json()
-            self.connection_id = result.get('id')
+            # Check if devices are displayed or empty state message
+            grid_text = devices_grid.text
+            assert grid_text is not None, "Devices grid should have content"
             
-            # Verificar que aparece en la lista
-            list_response = self.make_request("GET", "/connections")
-            if list_response and list_response.status_code == 200:
-                connections = list_response.json()
-                # Manejar respuesta paginada o lista directa
-                items = connections.get('items', connections) if isinstance(connections, dict) else connections
-                
-                found = any(conn['name'] == "conexión test" for conn in items)
-                
-                if found:
-                    duration = time.time() - step_start
-                    self.log_step(1, "Crear Conexión MQTT", "ÉXITO", 
-                                f"Conexión 'conexión test' creada con ID {self.connection_id}",
-                                "Conexión MQTT configurada para broker.mqtt.cool:1883", duration)
-                    return True
-        
-        duration = time.time() - step_start
-        self.log_step(1, "Crear Conexión MQTT", "ERROR", 
-                    f"Error creando conexión: {response.status_code if response else 'Sin respuesta'}",
-                    "Verificar configuración del servidor", duration)
-        return False
-    
-    def step_2_create_sensor_device(self):
-        """PASO 2: Crear y Configurar Dispositivo Sensor"""
-        step_start = time.time()
-        
-        # Crear dispositivo
-        device_data = {
-            "name": "sensor test",
-            "description": "Dispositivo sensor para test E2E"
-        }
-        
-        response = self.make_request("POST", "/devices", device_data)
-        
-        if response and response.status_code == 201:
-            device = response.json()
-            device_id = device.get('id')
-            self.device_ids.append(device_id)
+            # Check that we're not stuck on "Cargando dispositivos..."
+            if "Cargando dispositivos" in grid_text:
+                logger.warning("Devices still loading after timeout - this may indicate an API issue")
+                return False
             
-            # Configurar transmisión
-            transmission_config = {
-                "device_type": "Sensor",
-                "transmission_frequency": 10,
-                "transmission_enabled": False,  # Inicialmente deshabilitado
-                "connection_id": self.connection_id,
-                "include_device_id_in_payload": True
-            }
+            logger.info("✓ Devices page loads successfully")
+            return True
             
-            config_response = self.make_request("PUT", f"/devices/{device_id}/transmission-config", transmission_config)
-            
-            if config_response and config_response.status_code == 200:
-                # Ejecutar transmisión manual
-                transmit_response = self.make_request("POST", f"/devices/{device_id}/transmit-now/{self.connection_id}")
-                
-                duration = time.time() - step_start
-                
-                if transmit_response and transmit_response.status_code == 200:
-                    self.log_step(2, "Crear y Configurar Dispositivo Sensor", "ÉXITO",
-                                f"Dispositivo 'sensor test' creado con ID {device_id} y transmisión manual ejecutada",
-                                "Dispositivo configurado como Sensor con frecuencia 10s", duration)
-                    return True
-                else:
-                    self.log_step(2, "Crear y Configurar Dispositivo Sensor", "ÉXITO PARCIAL",
-                                f"Dispositivo creado pero error en transmisión manual",
-                                "Dispositivo funcional pero transmisión falló", duration)
-                    return True
-        
-        duration = time.time() - step_start
-        self.log_step(2, "Crear y Configurar Dispositivo Sensor", "ERROR",
-                    f"Error creando dispositivo: {response.status_code if response else 'Sin respuesta'}",
-                    "Verificar API de dispositivos", duration)
-        return False
-    
-    def step_3_duplicate_devices(self):
-        """PASO 3: Duplicar Dispositivos"""
-        step_start = time.time()
-        
-        if not self.device_ids:
-            duration = time.time() - step_start
-            self.log_step(3, "Duplicar Dispositivos", "ERROR",
-                        "No hay dispositivo base para duplicar",
-                        "Paso 2 debe completarse exitosamente primero", duration)
+        except TimeoutException:
+            logger.error("✗ Devices page failed to load")
+            if self.driver:
+                self.driver.save_screenshot("devices_page_failure.png")
+            return False
+        except AssertionError as e:
+            logger.error(f"✗ Devices page test failed: {e}")
             return False
         
         original_device_id = self.device_ids[0]

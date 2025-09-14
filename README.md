@@ -17,7 +17,7 @@ DevSim es una aplicación diseñada para la simulación avanzada de señales a p
 - **Duplicación masiva de dispositivos**: Duplicar 1-50 copias con nombres incrementales y referencias únicas
 - **Importación CSV**: Carga con validación (tamaño, formato, encoding) y previsualización (cabecera + 5 filas)
 - **Previsualización JSON/CSV**: Vista lado a lado con formato legible
-- **Conexiones externas**: MQTT y HTTPS con autenticación NONE, USER_PASS, TOKEN y API_KEY
+- **Conexiones externas**: MQTT, HTTPS y Kafka con autenticación NONE, USER_PASS, TOKEN y API_KEY
 - **Transmisiones automáticas**: Programación con APScheduler (WebApp: dataset completo, Sensor: una fila por envío)
 - **Transmisión manual**: Envío bajo demanda por conexión
 - **i18n**: Traducciones ES/EN servidas desde `frontend/locales/`
@@ -29,7 +29,7 @@ DevSim es una aplicación diseñada para la simulación avanzada de señales a p
 
 - **Backend**: Flask 2.x, SQLAlchemy 1.4, APScheduler 3.10, Flask-CORS, Flask-Sock (WebSocket)
 - **Base de datos**: SQLite (datos + scheduler)
-- **Conectividad**: paho-mqtt, requests, cryptography (gestión de secretos)
+- **Conectividad**: paho-mqtt, confluent-kafka, requests, cryptography (gestión de secretos)
 - **Frontend**: HTML5, CSS3, JavaScript (vanilla); SPA servida por Nginx en contenedor
 - **Internacionalización**: ficheros JSON en `frontend/locales/`
 - **Containerización**: Docker y Docker Compose, Nginx como reverse proxy para frontend
@@ -106,7 +106,6 @@ devsim/
    - `GET /locales/<path>` → traducciones
    Accede a http://localhost:5000/
 
-
 ## Límites y Validaciones
 
 - **CSV upload**: Máximo 10MB (`MAX_CONTENT_LENGTH`), validación de extensión y contenido.
@@ -124,7 +123,6 @@ devsim/
   - Docker 24+ y Docker Compose Plugin.
   - Puertos abiertos: 80 (frontend), 5000 (backend API, si se expone).
 - **Almacenamiento**: SSD recomendado; monta `./data` y `./backend/uploads` en volúmenes persistentes.
-
 
 ## Operación y Despliegue
 
@@ -148,7 +146,7 @@ devsim/
 2. **Importar CSV**: En el detalle del dispositivo, arrastrar archivo CSV o seleccionarlo.
 3. **Previsualizar**: Revisar la tabla CSV y JSON generados.
 4. **Guardar**: Confirmar guardado de datos en base de datos.
-5. **Transmitir**: Configurar conexión (MQTT/HTTPS) y lanzar transmisión manual o automática.
+5. **Transmitir**: Configurar conexión (MQTT/HTTPS/Kafka) y lanzar transmisión manual o automática.
 
 ## Licencia
 

@@ -100,8 +100,8 @@ def create_connection():
                 return jsonify({'error': f'Campo requerido: {field}'}), 400
         
         # Validar tipo de conexión
-        if data['type'] not in ['MQTT', 'HTTPS']:
-            return jsonify({'error': 'Tipo de conexión debe ser MQTT o HTTPS'}), 400
+        if data['type'] not in ['MQTT', 'HTTPS', 'KAFKA']:
+            return jsonify({'error': 'Tipo de conexión debe ser MQTT, HTTPS o KAFKA'}), 400
         
         # Validar tipo de autenticación
         if data['auth_type'] not in ['NONE', 'USER_PASS', 'TOKEN', 'API_KEY']:
@@ -154,8 +154,8 @@ def update_connection(connection_id):
         data = request.get_json()
         
         # Validar tipo de conexión si se proporciona
-        if 'type' in data and data['type'] not in ['MQTT', 'HTTPS']:
-            return jsonify({'error': 'Tipo de conexión debe ser MQTT o HTTPS'}), 400
+        if 'type' in data and data['type'] not in ['MQTT', 'HTTPS', 'KAFKA']:
+            return jsonify({'error': 'Tipo de conexión debe ser MQTT, HTTPS o KAFKA'}), 400
         
         # Validar tipo de autenticación si se proporciona
         if 'auth_type' in data and data['auth_type'] not in ['NONE', 'USER_PASS', 'TOKEN', 'API_KEY']:
@@ -250,6 +250,13 @@ def get_connection_types():
                 'description': 'Servicios web RESTful sobre HTTP/HTTPS',
                 'default_port': 443,
                 'fields': ['method', 'timeout', 'verify_ssl', 'headers']
+            },
+            {
+                'value': 'KAFKA',
+                'label': 'Apache Kafka',
+                'description': 'Sistema de mensajería distribuido',
+                'default_port': 9092,
+                'fields': ['bootstrap_servers', 'topic', 'group_id']
             }
         ]
     })
@@ -331,6 +338,11 @@ def send_device_data(device_id, connection_id):
         elif connection.type == 'HTTPS':
             response = client.send_request(payload)
             message = f'Datos enviados via HTTPS (Status: {response.status_code})'
+        
+        elif connection.type == 'KAFKA':
+            success, message = client.send(payload)
+            if not success:
+                return jsonify({'success': False, 'message': message}), 500
         
         return jsonify({
             'success': True,

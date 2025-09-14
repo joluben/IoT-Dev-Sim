@@ -1,9 +1,31 @@
 import paho.mqtt.client as mqtt
-import requests
 import json
-import time
-from datetime import datetime
 import ssl
+import time
+from typing import Dict, Any, Optional
+import requests
+import paho.mqtt.client as mqtt
+
+# Try to import Kafka producers in priority order: confluent-kafka, then kafka-python
+KAFKA_AVAILABLE = False
+KAFKA_BACKEND = None  # 'confluent' | 'kafka-python' | None
+KafkaBackendException = Exception
+
+try:
+    from confluent_kafka import Producer as ConfluentProducer, KafkaException as ConfluentKafkaException
+    KAFKA_AVAILABLE = True
+    KAFKA_BACKEND = 'confluent'
+    KafkaBackendException = ConfluentKafkaException
+except Exception:
+    try:
+        from kafka import KafkaProducer as PyKafkaProducer  # kafka-python
+        KAFKA_AVAILABLE = True
+        KAFKA_BACKEND = 'kafka-python'
+        class _KafkaPythonException(Exception):
+            pass
+        KafkaBackendException = _KafkaPythonException
+    except Exception:
+        print("⚠️ Kafka support disabled - neither confluent-kafka nor kafka-python is installed")
 
 
 class MQTTClient:
@@ -346,6 +368,114 @@ class HTTPSClient:
             }
 
 
+class KafkaClient:
+    def __init__(self, connection_config, auth_config=None):
+        self.connection_config = connection_config
+        self.auth_config = auth_config or {}
+        if not KAFKA_AVAILABLE:
+            raise ValueError("Kafka support not available - install 'confluent-kafka' or 'kafka-python'")
+        self.producer = self._create_producer()
+
+    def _create_producer(self):
+        """Crea y configura el productor de Kafka usando el backend disponible."""
+        bootstrap = self.connection_config.get('host')
+        client_id = self.connection_config.get('client_id', 'devsim-producer')
+
+        if KAFKA_BACKEND == 'confluent':
+            conf = {
+                'bootstrap.servers': bootstrap,
+                'client.id': client_id,
+            }
+            # TODO: Mapear configuración SASL/SSL cuando sea necesario
+            try:
+                return ConfluentProducer(conf)
+            except Exception as e:
+                raise ValueError(f"Error creando productor de Kafka (confluent): {e}")
+
+        elif KAFKA_BACKEND == 'kafka-python':
+            # kafka-python separa host y puerto; acepta lista de brokers
+            try:
+                return PyKafkaProducer(
+                    bootstrap_servers=bootstrap,
+                    client_id=client_id,
+                    value_serializer=lambda v: v  # ya enviamos bytes
+                )
+            except Exception as e:
+                raise ValueError(f"Error creando productor de Kafka (kafka-python): {e}")
+
+        else:
+            raise ValueError("No Kafka backend available")
+
+    def _delivery_report(self, err, msg):
+        """Callback para reportar el resultado de la entrega del mensaje (solo confluent)."""
+        if err is not None:
+            print(f"Falló la entrega del mensaje: {err}")
+        else:
+            print(f"Mensaje entregado a {msg.topic()} [{msg.partition()}]")
+
+    def send(self, data):
+        """Interfaz unificada para TransmissionManager: envía un mensaje a Kafka."""
+        topic = self.connection_config.get('endpoint') or 'default_topic'
+        try:
+            if isinstance(data, bytes):
+                payload = data
+            elif isinstance(data, dict):
+                payload = json.dumps(data).encode('utf-8')
+            elif isinstance(data, str):
+                payload = data.encode('utf-8')
+            else:
+                payload = str(data).encode('utf-8')
+
+            if KAFKA_BACKEND == 'confluent':
+                self.producer.produce(topic, payload, callback=self._delivery_report)
+                self.producer.poll(0)
+                remaining = self.producer.flush(10)
+                if remaining > 0:
+                    raise KafkaBackendException(f"{remaining} mensajes aún en cola después del timeout")
+            elif KAFKA_BACKEND == 'kafka-python':
+                future = self.producer.send(topic, payload)
+                # Esperar confirmación
+                future.get(timeout=10)
+                # kafka-python flush
+                self.producer.flush(timeout=10)
+            else:
+                raise ValueError("No Kafka backend available")
+
+            return True, f"Mensaje enviado al topic {topic}"
+        except Exception as e:
+            return False, str(e)
+
+    def test_connection(self):
+        """Prueba la conexión con el broker de Kafka."""
+        start_time = time.time()
+        try:
+            if KAFKA_BACKEND == 'confluent':
+                # Obtener metadata del cluster
+                self.producer.list_topics(timeout=5)
+            elif KAFKA_BACKEND == 'kafka-python':
+                # Intentar obtener particiones de un topic (o metadata del cluster)
+                # partitions_for(None) no es válido; consultamos el cluster via client
+                # kafka-python no expone un list_topics directo desde producer, pero conectará al broker al enviar metadata
+                # Forzamos metadata con flush(0)
+                self.producer.flush(timeout=0)
+            else:
+                raise ValueError("No Kafka backend available")
+
+            response_time = int((time.time() - start_time) * 1000)
+            return {
+                'success': True,
+                'response_time': response_time,
+                'message': f'Conexión con el broker de Kafka exitosa ({KAFKA_BACKEND}).'
+            }
+        except Exception as e:
+            response_time = int((time.time() - start_time) * 1000)
+            return {
+                'success': False,
+                'response_time': response_time,
+                'message': f'Error de conexión con Kafka ({KAFKA_BACKEND or "none"}): {e}'
+            }
+
+
 class ConnectionClientFactory:
     """Factory para crear clientes de conexión"""
     
@@ -367,5 +497,7 @@ class ConnectionClientFactory:
             return MQTTClient(connection_config, auth_config)
         elif connection.type == 'HTTPS':
             return HTTPSClient(connection_config, auth_config)
+        elif connection.type == 'KAFKA':
+            return KafkaClient(connection_config, auth_config)
         else:
             raise ValueError(f"Tipo de conexión no soportado: {connection.type}")

@@ -395,6 +395,8 @@ class EncryptionManager:
 
 
 class Connection:
+    CONNECTION_TYPES = ['MQTT', 'HTTPS', 'KAFKA']
+
     def __init__(self, id=None, name=None, description=None, type=None, host=None, 
                  port=None, endpoint=None, auth_type=None, auth_config=None, 
                  connection_config=None, is_active=True, created_at=None, updated_at=None):

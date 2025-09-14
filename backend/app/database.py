@@ -51,7 +51,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 description TEXT,
-                type TEXT NOT NULL CHECK(type IN ('MQTT', 'HTTPS')),
+                type TEXT NOT NULL CHECK(type IN ('MQTT', 'HTTPS', 'KAFKA')),
                 host TEXT NOT NULL,
                 port INTEGER,
                 endpoint TEXT,
@@ -142,6 +142,9 @@ def init_db():
             )
         ''')
 
+        # Migración: actualizar constraint de tipo de conexión para aceptar KAFKA
+        migrate_connections_type_constraint(conn)
+
         # Índices para optimizar consultas de proyectos
         conn.execute('CREATE INDEX IF NOT EXISTS idx_project_devices_project ON project_devices(project_id)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_project_devices_device ON project_devices(device_id)')
@@ -158,6 +161,49 @@ def add_column_if_not_exists(conn, table_name, column_name, column_definition):
     columns = [row['name'] for row in cursor.fetchall()]
     if column_name not in columns:
         conn.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}')
+
+def migrate_connections_type_constraint(conn):
+    """Ensure connections.type CHECK constraint includes KAFKA.
+    If the existing table was created with only ('MQTT','HTTPS'), recreate it with KAFKA and migrate data.
+    """
+    try:
+        row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='connections'").fetchone()
+        sql = row['sql'] if row else ''
+        if sql and "CHECK(type IN ('MQTT', 'HTTPS'))" in sql and 'KAFKA' not in sql:
+            # Recreate table with the new constraint
+            conn.execute('BEGIN TRANSACTION')
+            conn.execute('''
+                CREATE TABLE connections_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    type TEXT NOT NULL CHECK(type IN ('MQTT', 'HTTPS', 'KAFKA')),
+                    host TEXT NOT NULL,
+                    port INTEGER,
+                    endpoint TEXT,
+                    auth_type TEXT NOT NULL CHECK(auth_type IN ('NONE', 'USER_PASS', 'TOKEN', 'API_KEY')),
+                    auth_config TEXT,
+                    connection_config TEXT,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Copy data
+            conn.execute('''
+                INSERT INTO connections_new (id, name, description, type, host, port, endpoint, auth_type, auth_config, connection_config, is_active, created_at, updated_at)
+                SELECT id, name, description, type, host, port, endpoint, auth_type, auth_config, connection_config, is_active, created_at, updated_at
+                FROM connections
+            ''')
+            conn.execute('DROP TABLE connections')
+            conn.execute('ALTER TABLE connections_new RENAME TO connections')
+            conn.execute('COMMIT')
+    except Exception:
+        # If anything fails, rollback to avoid corrupting the DB and continue
+        try:
+            conn.execute('ROLLBACK')
+        except Exception:
+            pass
 
 # SQLAlchemy session management (Phase 10 optimization)
 @contextmanager
