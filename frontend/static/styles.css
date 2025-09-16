@@ -2078,6 +2078,7 @@ header p {
     cursor: pointer;
     font-size: 0.9rem;
     color: var(--text);
+    margin-bottom: 12px;
 }
 
 .checkbox-label input[type="checkbox"] {

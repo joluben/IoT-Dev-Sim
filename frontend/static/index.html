@@ -189,6 +189,10 @@
                                 <input type="checkbox" id="transmission-enabled" name="transmission_enabled">
                                 <span data-i18n="devices.labels.auto_transmission_enabled">Transmisión automática habilitada</span>
                             </label>
+                            <label class="checkbox-label" id="auto-reset-counter-container" style="display: none;">
+                                <input type="checkbox" id="auto-reset-counter" name="auto_reset_counter">
+                                <span data-i18n="devices.labels.auto_reset_counter">Reiniciar contador automáticamente al completar datos</span>
+                            </label>
                             <label class="checkbox-label">
                                 <input type="checkbox" id="include-device-id" name="include_device_id_in_payload">
                                 <span data-i18n="devices.labels.include_device_id">Incluir device_id en payload</span>
@@ -640,6 +644,13 @@
                             <select id="project-connection-selector" name="connection_id">
                                 <option value="" data-i18n="projects.select.use_device_connection">Usar conexión de cada dispositivo</option>
                             </select>
+                        </div>
+
+                        <div class="checkbox-container">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="project-auto-reset-counter" name="auto_reset_counter">
+                                <span data-i18n="projects.labels.auto_reset_counter">Reiniciar contador al completar los datos</span>
+                            </label>
                         </div>
 
                         <div class="transmission-actions">
