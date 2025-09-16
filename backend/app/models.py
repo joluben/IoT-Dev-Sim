@@ -16,7 +16,7 @@ class Device:
     def __init__(self, id=None, reference=None, name=None, description=None, csv_data=None, created_at=None,
                  device_type='WebApp', transmission_frequency=3600, transmission_enabled=False,
                  current_row_index=0, last_transmission=None, selected_connection_id=None,
-                 include_device_id_in_payload=False):
+                 include_device_id_in_payload=False, auto_reset_counter=False):
         self.id = id
         self.reference = reference
         self.name = name
@@ -30,6 +30,7 @@ class Device:
         self.last_transmission = last_transmission
         self.selected_connection_id = selected_connection_id
         self.include_device_id_in_payload = include_device_id_in_payload
+        self.auto_reset_counter = auto_reset_counter
 
     @staticmethod
     def generate_reference():
@@ -124,7 +125,8 @@ class Device:
             current_row_index=get_value('current_row_index', 0),
             last_transmission=get_value('last_transmission', None),
             selected_connection_id=get_value('selected_connection_id', None),
-            include_device_id_in_payload=bool(get_value('include_device_id_in_payload', False))
+            include_device_id_in_payload=bool(get_value('include_device_id_in_payload', False)),
+            auto_reset_counter=bool(get_value('auto_reset_counter', False))
         )
 
     def to_dict(self):
@@ -142,7 +144,8 @@ class Device:
             'current_row_index': self.current_row_index,
             'last_transmission': self.last_transmission,
             'selected_connection_id': self.selected_connection_id,
-            'include_device_id_in_payload': self.include_device_id_in_payload
+            'include_device_id_in_payload': self.include_device_id_in_payload,
+            'auto_reset_counter': self.auto_reset_counter
         }
 
     def get_transmission_data(self):
@@ -296,8 +299,8 @@ class Device:
                 INSERT INTO devices (
                     reference, name, description, csv_data, device_type,
                     transmission_frequency, transmission_enabled, current_row_index,
-                    selected_connection_id, last_transmission, include_device_id_in_payload
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    selected_connection_id, last_transmission, include_device_id_in_payload, auto_reset_counter
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', [
                 new_reference,
                 new_name,
@@ -309,7 +312,8 @@ class Device:
                 0,  # Resetear current_row_index a 0
                 original_device.selected_connection_id,
                 None,  # Resetear last_transmission
-                getattr(original_device, 'include_device_id_in_payload', False)
+                getattr(original_device, 'include_device_id_in_payload', False),
+                getattr(original_device, 'auto_reset_counter', False)
             ])
             
             # Obtener el dispositivo duplicado y agregarlo a la lista

@@ -36,7 +36,8 @@
     "devices": "Dispositivos:",
     "transmissions": "Transmisiones:",
     "success": "Éxito:",
-    "connection_for_transmission": "Conexión para Transmisión"
+    "connection_for_transmission": "Conexión para Transmisión",
+    "auto_reset_counter": "Reinicio de contador automático"
   },
   "sections": {
     "info": "Información del Proyecto",

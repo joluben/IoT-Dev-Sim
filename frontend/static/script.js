@@ -62,6 +62,14 @@ function normalizePaginatedData(response) {
     return []; // Return empty array if no data found
 }
 
+// Toggle auto-reset counter checkbox visibility based on transmission enabled state
+function toggleAutoResetCounterVisibility(transmissionEnabled) {
+    const autoResetContainer = document.getElementById('auto-reset-counter-container');
+    if (autoResetContainer) {
+        autoResetContainer.style.display = transmissionEnabled ? 'block' : 'none';
+    }
+}
+
 // --- Safe no-op implementations to avoid runtime errors and keep UI usable ---
 async function saveTransmissionConfig() {
     try {
@@ -70,14 +78,39 @@ async function saveTransmissionConfig() {
         const freqEl = document.getElementById('transmission-frequency');
         const connEl = document.getElementById('transmission-connection');
         const enabledEl = document.getElementById('transmission-enabled');
+        const includeDeviceIdEl = document.getElementById('include-device-id');
+        const autoResetCounterEl = document.getElementById('auto-reset-counter');
+        
         const payload = {
             device_type: typeEl ? typeEl.value : undefined,
-            frequency: freqEl ? Number(freqEl.value || 0) : undefined,
+            transmission_frequency: freqEl ? Number(freqEl.value || 0) : undefined,
             connection_id: connEl ? connEl.value : undefined,
-            enabled: enabledEl ? enabledEl.checked : undefined,
+            transmission_enabled: enabledEl ? enabledEl.checked : undefined,
+            include_device_id_in_payload: includeDeviceIdEl ? includeDeviceIdEl.checked : undefined,
+            auto_reset_counter: autoResetCounterEl ? autoResetCounterEl.checked : undefined,
         };
-        console.log('💾 saveTransmissionConfig()', payload);
-        showNotification('Configuración de transmisión guardada (simulada)', 'success');
+
+        if (!currentDevice) {
+            showNotification('No hay dispositivo seleccionado', 'error');
+            return;
+        }
+
+        const response = await fetch(`${API_BASE}/devices/${currentDevice.id}/transmission-config`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const updatedDevice = await response.json();
+            currentDevice = updatedDevice;
+            showNotification('Configuración de transmisión guardada', 'success');
+        } else {
+            const error = await response.json();
+            showNotification(`Error: ${error.error}`, 'error');
+        }
     } catch (e) {
         console.error('saveTransmissionConfig error', e);
         showNotification('Error guardando configuración', 'error');
@@ -848,6 +881,12 @@ async function showProjectDetail(projectId) {
                 const val = e.target.value;
                 if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
             });
+        }
+        
+        // Set auto-reset counter checkbox state
+        const projectAutoResetEl = document.getElementById('project-auto-reset-counter');
+        if (projectAutoResetEl) {
+            projectAutoResetEl.checked = !!currentProject.auto_reset_counter;
         }
         
         // Load transmission history
@@ -1765,7 +1804,8 @@ function initializeEventListeners() {
         const formData = new FormData(this);
         const data = {
             name: formData.get('name'),
-            description: formData.get('description')
+            description: formData.get('description'),
+            auto_reset_counter: document.getElementById('project-auto-reset-counter')?.checked || false
         };
         createDevice(data);
     });
@@ -2699,6 +2739,11 @@ async function loadTransmissionConfig(deviceId) {
         document.getElementById('transmission-enabled').checked = config.transmission_enabled;
         const includeDeviceIdEl = document.getElementById('include-device-id');
         if (includeDeviceIdEl) includeDeviceIdEl.checked = !!config.include_device_id_in_payload;
+        const autoResetCounterEl = document.getElementById('auto-reset-counter');
+        if (autoResetCounterEl) autoResetCounterEl.checked = !!config.auto_reset_counter;
+        
+        // Show/hide auto-reset counter checkbox based on transmission enabled state
+        toggleAutoResetCounterVisibility(config.transmission_enabled);
         
         // Show/hide sensor controls
         const sensorControls = document.getElementById('sensor-controls');
@@ -3100,6 +3145,11 @@ function initializeTransmissionControls() {
         }
     });
     
+    // Transmission enabled change handler - toggle auto-reset counter visibility
+    document.getElementById('transmission-enabled').addEventListener('change', function() {
+        toggleAutoResetCounterVisibility(this.checked);
+    });
+    
     // Transmission config buttons
     document.getElementById('btn-save-transmission-config').addEventListener('click', saveTransmissionConfig);
     document.getElementById('btn-transmit-now').addEventListener('click', transmitNowUI);
@@ -3173,7 +3223,8 @@ function initializeTransmissionControls() {
         const formData = new FormData(e.target);
         const data = {
             name: formData.get('name').trim(),
-            description: formData.get('description').trim()
+            description: formData.get('description').trim(),
+            auto_reset_counter: document.getElementById('project-auto-reset-counter')?.checked || false
         };
         
         if (!data.name) {
@@ -3242,6 +3293,13 @@ async function editProject(projectId) {
         document.getElementById('project-submit-text').textContent = 'Actualizar Proyecto';
         document.getElementById('project-name').value = project.name;
         document.getElementById('project-description').value = project.description || '';
+        
+        // Set auto-reset counter checkbox state
+        const projectAutoResetEl = document.getElementById('project-auto-reset-counter');
+        if (projectAutoResetEl) {
+            projectAutoResetEl.checked = !!project.auto_reset_counter;
+        }
+        
         showView('projectForm');
         
     } catch (error) {

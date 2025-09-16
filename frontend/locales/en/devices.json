@@ -57,7 +57,8 @@
   "labels": {
     "connection_for_transmission": "Connection for Transmission",
     "auto_transmission_enabled": "Automatic transmission enabled",
-    "include_device_id": "Include device_id in payload"
+    "include_device_id": "Include device_id in payload",
+    "auto_reset_counter": "Automatic counter restart"
   },
   "select": {
     "connection_placeholder": "Select connection..."

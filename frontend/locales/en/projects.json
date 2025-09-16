@@ -48,7 +48,8 @@
     "devices": "Devices:",
     "transmissions": "Transmissions:",
     "success": "Success:",
-    "connection_for_transmission": "Connection for Transmission"
+    "connection_for_transmission": "Connection for Transmission",
+    "auto_reset_counter": "Automatic counter restart"
   },
   "sections": {
     "info": "Project Information",

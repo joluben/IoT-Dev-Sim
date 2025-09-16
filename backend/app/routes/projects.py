@@ -166,6 +166,8 @@ def update_project(project_id):
             update_data['description'] = data['description'].strip() if data['description'] else None
         if 'is_active' in data:
             update_data['is_active'] = bool(data['is_active'])
+        if 'auto_reset_counter' in data:
+            update_data['auto_reset_counter'] = bool(data['auto_reset_counter'])
         
         if update_data:
             project.update(**update_data)

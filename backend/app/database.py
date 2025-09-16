@@ -85,6 +85,8 @@ def init_db():
         add_column_if_not_exists(conn, 'devices', 'selected_connection_id', 'INTEGER')
         # Nueva configuración: opcionalmente incluir device_id en payload de transmisión
         add_column_if_not_exists(conn, 'devices', 'include_device_id_in_payload', 'BOOLEAN DEFAULT FALSE')
+        # Nueva configuración: reiniciar contador automáticamente al completar datos
+        add_column_if_not_exists(conn, 'devices', 'auto_reset_counter', 'BOOLEAN DEFAULT FALSE')
 
         # Nuevas tablas para Fase 7
         conn.execute('''
@@ -152,6 +154,8 @@ def init_db():
 
         # Migración opcional: agregar columna current_project_id a devices
         add_column_if_not_exists(conn, 'devices', 'current_project_id', 'INTEGER REFERENCES projects (id) ON DELETE SET NULL')
+        # Nueva configuración para proyectos: reiniciar contador automáticamente
+        add_column_if_not_exists(conn, 'projects', 'auto_reset_counter', 'BOOLEAN DEFAULT FALSE')
 
         conn.commit()
 
