@@ -76,5 +76,6 @@ Thumbs.db
 /UI example
 /ignore files
 /keycloak
-
+/secrets
+/data
 

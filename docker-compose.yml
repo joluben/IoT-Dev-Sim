@@ -8,8 +8,8 @@ services:
       - ./data:/app/data
       - ./backend/uploads:/app/uploads
       # Mount secrets directory for secure key storage
-      - ./data/secrets:/app/data/secrets:ro
-      - ./data/keys:/app/data/keys:ro
+      - ./data/secrets:/app/data/secrets
+      - ./data/keys:/app/data/keys
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - FLASK_APP=run.py
