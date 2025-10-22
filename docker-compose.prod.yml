@@ -1,0 +1,240 @@
+# =============================================================================
+# DevSim Production Docker Compose Configuration
+# =============================================================================
+# This configuration provides production-ready deployment with:
+# - SSL/TLS termination with Let's Encrypt
+# - Automatic certificate renewal
+# - Security headers and rate limiting
+# - PostgreSQL database
+# - Redis caching
+# - Monitoring and health checks
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Frontend with Nginx + SSL/TLS
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: devsim-frontend-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # SSL certificates from Let's Encrypt
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+      # Production nginx configuration
+      - ./frontend/nginx.prod.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    networks:
+      - devsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =============================================================================
+  # Certbot for Let's Encrypt SSL certificates
+  # =============================================================================
+  certbot:
+    image: certbot/certbot:latest
+    container_name: devsim-certbot
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${LETSENCRYPT_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN_NAME}
+    depends_on:
+      - frontend
+    networks:
+      - devsim-network
+
+  # =============================================================================
+  # Backend with Gunicorn
+  # =============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: devsim-backend-prod
+    expose:
+      - "5000"
+    volumes:
+      - ./data:/app/data
+      - ./backend/uploads:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - FLASK_APP=run.py
+      # Database Configuration
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Redis Configuration
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      # Security Configuration (loaded from Docker secrets)
+      - USE_DOCKER_SECRETS=true
+      - SECRET_ENV_PREFIX=DEVSIM_
+      - ENCRYPTION_KEY_STORAGE_PATH=/app/data/keys
+      - SECRETS_STORAGE_DIR=/app/data/secrets
+      # CORS Configuration
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - FORCE_HTTPS=true
+      # Upload Configuration
+      - MAX_CONTENT_LENGTH=10485760
+      - UPLOAD_FOLDER=/app/uploads
+      # Production Settings
+      - ALLOW_SENSITIVE_CONNECTIONS=false
+      # Monitoring
+      - LOG_LEVEL=INFO
+      - SENTRY_DSN=${SENTRY_DSN}
+    env_file:
+      - .env.production
+    secrets:
+      - secret_key
+      - encryption_key
+      - jwt_secret_key
+      - db_password
+      - keycloak_client_secret
+      - keycloak_admin_password
+    networks:
+      - devsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: devsim-postgres-prod
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - devsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # =============================================================================
+  # Redis Cache
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: devsim-redis-prod
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - devsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  # =============================================================================
+  # Kafka Message Broker
+  # =============================================================================
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: devsim-kafka-prod
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      # Production settings
+      - KAFKA_CFG_NUM_NETWORK_THREADS=8
+      - KAFKA_CFG_NUM_IO_THREADS=8
+      - KAFKA_CFG_SOCKET_SEND_BUFFER_BYTES=102400
+      - KAFKA_CFG_SOCKET_RECEIVE_BUFFER_BYTES=102400
+      - KAFKA_CFG_SOCKET_REQUEST_MAX_BYTES=104857600
+    volumes:
+      - kafka_data:/bitnami/kafka
+    networks:
+      - devsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  devsim-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+  certbot_conf:
+    driver: local
+  certbot_www:
+    driver: local
+
+# =============================================================================
+# Docker Secrets for Production
+# =============================================================================
+secrets:
+  secret_key:
+    file: ./secrets/secret_key.txt
+  encryption_key:
+    file: ./secrets/encryption_key.txt
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  keycloak_client_secret:
+    file: ./secrets/keycloak_client_secret.txt
+  keycloak_admin_password:
+    file: ./secrets/keycloak_admin_password.txt

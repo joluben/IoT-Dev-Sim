@@ -23,14 +23,21 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual environments and environment files
 .env
+.env.local
+.env.*.local
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Environment configuration (allow templates)
+!.env.development
+!.env.production
+!.example.env
 
 # IDE
 .vscode/
@@ -78,4 +85,5 @@ Thumbs.db
 /keycloak
 /secrets
 /data
-
+/docs
+/scripts
