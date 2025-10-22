@@ -200,7 +200,7 @@ class Device:
             row['device_id'] = self.reference
         return row
 
-    def update_transmission_config(self, device_type=None, frequency=None, enabled=None, connection_id=None, include_device_id_in_payload=None):
+    def update_transmission_config(self, device_type=None, frequency=None, enabled=None, connection_id=None, include_device_id_in_payload=None, auto_reset_counter=None):
         """Actualiza la configuración de transmisión del dispositivo."""
         if device_type and device_type in self.DEVICE_TYPES:
             self.device_type = device_type
@@ -222,6 +222,10 @@ class Device:
         if include_device_id_in_payload is not None:
             self.include_device_id_in_payload = bool(include_device_id_in_payload)
             execute_insert('UPDATE devices SET include_device_id_in_payload = ? WHERE id = ?', [int(self.include_device_id_in_payload), self.id])
+
+        if auto_reset_counter is not None:
+            self.auto_reset_counter = bool(auto_reset_counter)
+            execute_insert('UPDATE devices SET auto_reset_counter = ? WHERE id = ?', [int(self.auto_reset_counter), self.id])
 
     def advance_sensor_row(self):
         """Avanza el índice de la fila para dispositivos Sensor y actualiza la BD."""

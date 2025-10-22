@@ -1,10 +1,13 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sock import Sock
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 import atexit
 import logging
 from dotenv import load_dotenv
+from .environment_config import get_config, print_config_summary
 from .database import init_db
 from .routes.devices import devices_bp
 from .routes.upload import upload_bp
@@ -18,10 +21,18 @@ from .scheduler import init_scheduler
 from .secrets_mgmt.secret_manager import get_secret_manager
 from .startup_validation import validate_startup_configuration
 from .middleware.auth_middleware import create_auth_middleware
+from .middleware.security_middleware import SecurityMiddleware
 
 def create_app():
     # Load environment variables from .env for local development
     load_dotenv()
+
+    # Load environment-aware configuration
+    config = get_config()
+    
+    # Print configuration summary in development
+    if config.environment == 'development':
+        print_config_summary(config)
 
     # Validate startup configuration before initializing Flask app
     print("🔍 Validating startup configuration...")
@@ -31,25 +42,49 @@ def create_app():
     app = Flask(__name__)
     sock = Sock(app)
     
-    # Enhanced configuration with environment variable support
-    app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))
-    app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER') or os.path.join(os.path.dirname(__file__), '..', 'uploads')
-    # Robust default for scheduler DB under backend/data (absolute path)
-    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
-    os.makedirs(data_dir, exist_ok=True)
-    default_scheduler_db = f"sqlite:///{os.path.join(data_dir, 'scheduler_jobs.db')}"
-    app.config['DATABASE_URL'] = os.getenv('DATABASE_URL') or default_scheduler_db
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+    redis_url = os.getenv('REDIS_URL')
+    storage_uri = redis_url if redis_url else 'memory://'
+    limiter = Limiter(
+        key_func=get_remote_address,
+        storage_uri=storage_uri,
+        app=app,
+        default_limits=["100 per minute"]
+    )
+    app.limiter = limiter
     
-    # Validate critical configuration
-    if not app.config['SECRET_KEY']:
-        raise RuntimeError("SECRET_KEY environment variable is required")
+    # Apply configuration to Flask app
+    app.config['MAX_CONTENT_LENGTH'] = config.max_content_length
+    app.config['UPLOAD_FOLDER'] = config.upload_folder
+    app.config['DATABASE_URL'] = config.database.url
+    app.config['SECRET_KEY'] = config.secret_key
+    
+    # Store config for access by other components
+    app.config['DEVSIM_CONFIG'] = config
     
     # Crear directorio de uploads si no existe
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # Configurar CORS para desarrollo
-    CORS(app, origins=['*'])
+    # Configure CORS based on environment
+    if config.environment == 'production':
+        # Strict CORS for production
+        CORS(app, 
+             origins=config.security.cors_origins,
+             supports_credentials=True,
+             allow_headers=['Content-Type', 'Authorization'],
+             methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+        print(f"🔒 CORS configured for production: {config.security.cors_origins}")
+    else:
+        # Relaxed CORS for development
+        CORS(app, origins=config.security.cors_origins)
+        print(f"🔧 CORS configured for development: {config.security.cors_origins}")
+    
+    # Production security validation
+    if config.environment == 'production':
+        if config.security.debug_enabled:
+            raise RuntimeError("Debug mode cannot be enabled in production")
+        if config.security.allow_sensitive_connections:
+            raise RuntimeError("Sensitive connections cannot be allowed in production")
+        print("🔒 Production security validated: Debug disabled, sensitive connections blocked")
     
     # Inicializar base de datos
     init_db()
@@ -73,15 +108,30 @@ def create_app():
     app.scheduler = scheduler
     # Iniciar scheduler inmediatamente (evita dependencia de before_first_request)
     try:
+        import logging
+        logging.info("Starting transmission scheduler...")
         app.scheduler.start()
+        logging.info("✅ Transmission scheduler started successfully")
     except Exception as e:
         import logging
-        logging.error(f"Error starting scheduler: {e}")
+        import traceback
+        logging.error(f"❌ Error starting scheduler: {e}")
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        # Continue without scheduler - transmissions won't work but app will run
+        app.scheduler = None
     # Detener scheduler al finalizar el proceso (apagado limpio)
     atexit.register(lambda: hasattr(app, 'scheduler') and app.scheduler and app.scheduler.shutdown())
     
+    # Initialize security middleware (must be before auth middleware)
+    security_middleware = SecurityMiddleware(app)
+    
     # Initialize authentication middleware
     create_auth_middleware(app)
+    
+    limiter = app.limiter
+    limiter.exempt(health_bp)
+    limiter.limit("5 per minute")(auth_bp)
+    limiter.limit("2 per minute")(upload_bp)
     
     # Registrar blueprints
     app.register_blueprint(devices_bp, url_prefix='/api')
@@ -155,6 +205,14 @@ def create_app():
     @app.errorhandler(500)
     def internal_error(e):
         return jsonify({'error': 'Error interno del servidor'}), 500
-    
-    
+
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        retry_after = getattr(e, "retry_after", None)
+        app.logger.warning(f"Rate limit exceeded: ip={request.remote_addr} path={request.path}")
+        resp = jsonify({'error': 'Too Many Requests', 'message': 'Rate limit exceeded'})
+        if retry_after:
+            resp.headers['Retry-After'] = str(retry_after)
+        return resp, 429
+
     return app

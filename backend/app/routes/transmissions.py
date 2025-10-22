@@ -9,11 +9,30 @@ from ..validators import validate_transmission_request, validate_transmission_co
 
 transmissions_bp = Blueprint('transmissions_bp', __name__)
 
+@transmissions_bp.route('/api/transmissions/test', methods=['GET'])
+def test_endpoint():
+    """Simple test endpoint to verify routes are working"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'Transmissions blueprint is working',
+        'endpoints': [
+            'GET /api/transmissions/test',
+            'GET /api/devices/<id>/transmission-config',
+            'PUT /api/devices/<id>/transmission-config',
+            'POST /api/devices/<id>/transmit',
+            'GET /api/devices/<id>/debug'
+        ]
+    })
+
 @transmissions_bp.route('/api/devices/<int:device_id>/transmission-config', methods=['GET', 'PUT'])
 def handle_transmission_config(device_id):
-    device = Device.get_by_id(device_id)
-    if not device:
-        return jsonify({'error': 'Device not found'}), 404
+    try:
+        device = Device.get_by_id(device_id)
+        if not device:
+            return jsonify({'error': 'Device not found'}), 404
+    except Exception as e:
+        logging.error(f"Error getting device {device_id}: {e}")
+        return jsonify({'error': f'Error retrieving device: {str(e)}'}), 500
 
     if request.method == 'GET':
         return jsonify({
@@ -26,29 +45,58 @@ def handle_transmission_config(device_id):
         })
 
     if request.method == 'PUT':
-        data = request.json
-        
-        # Validar configuración
-        is_valid, error_msg = validate_transmission_config_update(
-            device_type=data.get('device_type'),
-            frequency=data.get('transmission_frequency'),
-            enabled=data.get('transmission_enabled')
-        )
-        
-        if not is_valid:
-            return jsonify({'error': error_msg}), 400
-        
-        device.update_transmission_config(
-            device_type=data.get('device_type'),
-            frequency=data.get('transmission_frequency'),
-            enabled=data.get('transmission_enabled'),
-            connection_id=data.get('connection_id'),
-            include_device_id_in_payload=data.get('include_device_id_in_payload'),
-            auto_reset_counter=data.get('auto_reset_counter', False)
-        )
-        # NO reprogramar automáticamente al guardar configuración.
-        # La programación se controla explícitamente vía /pause, /resume y /stop.
-        return jsonify(device.to_dict())
+        try:
+            # Validate request has JSON data
+            if not request.is_json:
+                return jsonify({'error': 'Request must be JSON'}), 400
+            
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Request body is required'}), 400
+            
+            # Validar configuración
+            try:
+                is_valid, error_msg = validate_transmission_config_update(
+                    device_type=data.get('device_type'),
+                    frequency=data.get('transmission_frequency'),
+                    enabled=data.get('transmission_enabled')
+                )
+                
+                if not is_valid:
+                    return jsonify({'error': error_msg}), 400
+            except Exception as validation_error:
+                logging.error(f"Validation error for device {device_id}: {validation_error}")
+                return jsonify({'error': f'Validation failed: {str(validation_error)}'}), 400
+            
+            # Validate connection_id if provided
+            connection_id = data.get('connection_id')
+            if connection_id is not None:
+                try:
+                    connection_id = int(connection_id)
+                    # Verify connection exists
+                    from ..models import Connection
+                    connection = Connection.get_by_id(connection_id)
+                    if not connection:
+                        return jsonify({'error': f'Connection with ID {connection_id} not found'}), 400
+                except (ValueError, TypeError):
+                    return jsonify({'error': 'connection_id must be a valid integer'}), 400
+            
+            device.update_transmission_config(
+                device_type=data.get('device_type'),
+                frequency=data.get('transmission_frequency'),
+                enabled=data.get('transmission_enabled'),
+                connection_id=connection_id,
+                include_device_id_in_payload=data.get('include_device_id_in_payload'),
+                auto_reset_counter=data.get('auto_reset_counter', False)
+            )
+            # NO reprogramar automáticamente al guardar configuración.
+            # La programación se controla explícitamente vía /pause, /resume y /stop.
+            return jsonify(device.to_dict())
+            
+        except Exception as e:
+            import logging
+            logging.error(f"Error updating transmission config for device {device_id}: {e}")
+            return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @transmissions_bp.route('/api/devices/<int:device_id>/transmit-now/<int:connection_id>', methods=['POST'])
 def transmit_now(device_id, connection_id):
@@ -80,11 +128,31 @@ def transmit_now(device_id, connection_id):
 @transmissions_bp.route('/api/devices/<int:device_id>/transmit', methods=['POST'])
 def transmit_legacy(device_id):
     """Legacy endpoint for backward compatibility"""
-    connection_id = request.json.get('connection_id')
-    if not connection_id:
-        return jsonify({'error': 'connection_id is required'}), 400
+    try:
+        # Validate request has JSON data
+        if not request.is_json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+        
+        connection_id = data.get('connection_id')
+        if not connection_id:
+            return jsonify({'error': 'connection_id is required'}), 400
+        
+        # Validate connection_id is a valid integer
+        try:
+            connection_id = int(connection_id)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'connection_id must be a valid integer'}), 400
 
-    return transmit_now(device_id, connection_id)
+        return transmit_now(device_id, connection_id)
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in transmit_legacy endpoint: {e}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @transmissions_bp.route('/api/devices/<int:device_id>/transmission-history', methods=['GET'])
 def get_history(device_id):
@@ -281,3 +349,74 @@ def resume_legacy(device_id):
 @transmissions_bp.route('/api/devices/<int:device_id>/stop', methods=['POST'])
 def stop_legacy(device_id):
     return stop_transmission(device_id)
+
+@transmissions_bp.route('/api/devices/<int:device_id>/debug', methods=['GET'])
+def debug_device(device_id):
+    """Debug endpoint to diagnose device and connection issues"""
+    try:
+        # Check device
+        device = Device.get_by_id(device_id)
+        if not device:
+            return jsonify({'error': 'Device not found', 'device_id': device_id}), 404
+        
+        # Check connection if selected
+        connection = None
+        connection_status = None
+        if device.selected_connection_id:
+            try:
+                connection = Connection.get_by_id(device.selected_connection_id)
+                if connection:
+                    connection_status = {
+                        'id': connection.id,
+                        'name': connection.name,
+                        'type': connection.type,
+                        'is_active': connection.is_active,
+                        'host': connection.host,
+                        'port': connection.port
+                    }
+                else:
+                    connection_status = {'error': f'Connection {device.selected_connection_id} not found'}
+            except Exception as e:
+                connection_status = {'error': f'Error loading connection: {str(e)}'}
+        
+        # Check CSV data
+        csv_status = {
+            'has_data': bool(device.csv_data),
+            'parsed_ok': False,
+            'row_count': 0
+        }
+        
+        if device.csv_data:
+            try:
+                csv_content = device.get_csv_data_parsed()
+                if csv_content and 'data' in csv_content:
+                    csv_status['parsed_ok'] = True
+                    csv_status['row_count'] = len(csv_content['data'])
+            except Exception as e:
+                csv_status['parse_error'] = str(e)
+        
+        return jsonify({
+            'device_id': device_id,
+            'device': {
+                'id': device.id,
+                'name': device.name,
+                'reference': device.reference,
+                'device_type': device.device_type,
+                'transmission_frequency': device.transmission_frequency,
+                'transmission_enabled': device.transmission_enabled,
+                'current_row_index': device.current_row_index,
+                'selected_connection_id': device.selected_connection_id,
+                'include_device_id_in_payload': device.include_device_id_in_payload,
+                'auto_reset_counter': getattr(device, 'auto_reset_counter', False)
+            },
+            'connection': connection_status,
+            'csv_data': csv_status,
+            'timestamp': os.times()
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in debug endpoint for device {device_id}: {e}")
+        return jsonify({
+            'error': f'Debug failed: {str(e)}',
+            'device_id': device_id
+        }), 500

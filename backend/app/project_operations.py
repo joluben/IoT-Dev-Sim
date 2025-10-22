@@ -22,6 +22,11 @@ class ProjectOperationManager:
         if not project:
             raise ValueError("Proyecto no encontrado")
         
+        # Verificar que el scheduler está disponible
+        if not self.scheduler:
+            logger.error("Scheduler not available - cannot start transmissions")
+            raise RuntimeError("El sistema de transmisiones no está disponible. Verifica los logs del servidor.")
+        
         devices = project.get_devices()
         if not devices:
             return {
@@ -74,15 +79,22 @@ class ProjectOperationManager:
                     failed += 1
                     continue
                 
+                # Actualizar configuración del dispositivo ANTES de programar
+                # para que el scheduler encuentre transmission_enabled=True
+                device.update_transmission_config(enabled=True, connection_id=target_connection)
+                logger.info(f"Device {device.id} config updated: enabled=True, connection_id={target_connection}")
+                
                 # Iniciar transmisión para el dispositivo
                 if self.scheduler:
+                    logger.info(f"Scheduling transmission for device {device.id}, connection {target_connection}, freq {device.transmission_frequency}")
                     success = self.scheduler.schedule_transmission(
                         device.id, target_connection, device.transmission_frequency
                     )
+                    logger.info(f"Schedule result for device {device.id}: {success}")
                     
                     if success:
                         # Actualizar configuración del dispositivo
-                        device.update_transmission_config(enabled=True, connection_id=target_connection)
+                        # device.update_transmission_config(enabled=True, connection_id=target_connection)
                         
                         results.append({
                             'device_id': device.id,

@@ -1,0 +1,42 @@
+# =============================================================================
+# DevSim Backend Production Requirements
+# =============================================================================
+# Production-specific dependencies for DevSim backend
+# =============================================================================
+
+# Base requirements (from requirements.txt)
+-r requirements.txt
+
+# Production WSGI Server
+gunicorn==21.2.0
+
+# Database
+psycopg2-binary==2.9.7
+
+# Caching
+redis==5.0.1
+Flask-Caching==2.1.0
+
+# Monitoring and Logging
+sentry-sdk[flask]==1.38.0
+prometheus-flask-exporter==0.23.0
+
+# Security
+flask-talisman==1.1.0
+
+# Background Tasks
+celery==5.3.4
+celery[redis]==5.3.4
+
+# Rate Limiting
+Flask-Limiter==3.5.0
+
+# Input Validation
+marshmallow==3.20.1
+flask-marshmallow==0.15.0
+
+# Health Checks
+psutil==5.9.6
+
+# Logging
+python-json-logger==2.0.7

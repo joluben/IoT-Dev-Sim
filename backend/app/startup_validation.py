@@ -108,16 +108,33 @@ class StartupValidator:
                     f"Invalid environment variable: {var} - {error}"
                 )
         
-        # Add security warnings
-        if os.environ.get('FLASK_ENV') == 'development':
+        # Add security warnings based on environment
+        flask_env = os.environ.get('FLASK_ENV', 'development').lower()
+        
+        if flask_env == 'development':
             results['warnings'].append(
                 "Running in development mode - ensure this is not a production deployment"
             )
+        elif flask_env == 'production':
+            # Production-specific validations
+            flask_debug = os.environ.get('FLASK_DEBUG', 'false').lower()
+            if flask_debug in ('true', '1', 'yes'):
+                results['errors'].append(
+                    "FLASK_DEBUG must be 'false' in production environment"
+                )
+            
+            allow_sensitive = os.environ.get('ALLOW_SENSITIVE_CONNECTIONS', 'false').lower()
+            if allow_sensitive in ('true', '1', 'yes'):
+                results['errors'].append(
+                    "ALLOW_SENSITIVE_CONNECTIONS must be 'false' in production environment"
+                )
         
+        # General security warnings
         if os.environ.get('ALLOW_SENSITIVE_CONNECTIONS', 'false').lower() == 'true':
-            results['warnings'].append(
-                "Sensitive connections are allowed - disable in production for security"
-            )
+            if flask_env != 'production':  # Only warn in non-production
+                results['warnings'].append(
+                    "Sensitive connections are allowed - disable in production for security"
+                )
         
         if not os.environ.get('ENCRYPTION_KEY'):
             results['warnings'].append(

@@ -1,0 +1,70 @@
+# =============================================================================
+# DevSim Backend Production Dockerfile
+# =============================================================================
+# Multi-stage build for optimized production deployment with:
+# - Gunicorn WSGI server
+# - Security hardening
+# - Health checks
+# - Proper logging
+# =============================================================================
+
+FROM python:3.11-slim as base
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set work directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+COPY requirements-prod.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/logs /app/data /app/uploads /app/tmp \
+    && chown -R appuser:appuser /app \
+    && chmod 755 /app/logs /app/data /app/uploads /app/tmp
+
+# Copy production configuration files
+COPY gunicorn_config.py /app/
+COPY logging_config.py /app/
+
+# Health check script
+COPY scripts/health_check.py /app/scripts/
+
+# Make scripts executable
+RUN chmod +x /app/scripts/*.py
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python /app/scripts/health_check.py || exit 1
+
+# Expose port
+EXPOSE 5000
+
+# Use Gunicorn for production
+CMD ["gunicorn", "--config", "gunicorn_config.py", "run:app"]
