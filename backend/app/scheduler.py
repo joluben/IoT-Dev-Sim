@@ -36,10 +36,15 @@ def execute_transmission_job(device_id, connection_id):
     if app is None:
         logging.error("Flask app reference not initialized for scheduler job")
         return
+    
+    logging.info(f"🔄 Executing transmission job for device {device_id}, connection {connection_id}")
+    
     with app.app_context():
         try:
             device = Device.get_by_id(device_id)
             connection = Connection.get_by_id(connection_id)
+            
+            logging.info(f"Device found: {device is not None}, Connection found: {connection is not None}")
 
             if not device or not connection:
                 logging.warning(f"Dispositivo {device_id} o conexión {connection_id} no encontrados")
@@ -89,12 +94,24 @@ class TransmissionScheduler:
     
     def setup_scheduler(self):
         """Configurar APScheduler con persistencia en BD"""
-        # Configurar jobstore con SQLAlchemy para persistencia
-        database_url = os.getenv('DATABASE_URL', 'sqlite:///scheduler_jobs.db')
+        # Intentar usar persistencia en BD, fallback a memoria si falla
+        try:
+            data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
+            os.makedirs(data_dir, exist_ok=True)
+            default_db_path = os.path.join(data_dir, 'scheduler_jobs.db')
+            # En Windows, SQLAlchemy necesita barras normales en la URL
+            default_db_path_url = default_db_path.replace('\\', '/')
+            database_url = os.getenv('DATABASE_URL', f'sqlite:///{default_db_path_url}')
+            logging.info(f"Scheduler database URL: {database_url}")
+            
+            jobstores = {
+                'default': SQLAlchemyJobStore(url=database_url)
+            }
+        except Exception as e:
+            logging.warning(f"Could not setup persistent jobstore, using memory: {e}")
+            # Fallback a jobstore en memoria (no persiste entre reinicios)
+            jobstores = {}
         
-        jobstores = {
-            'default': SQLAlchemyJobStore(url=database_url)
-        }
         executors = {
             'default': ThreadPoolExecutor(20)  # Máximo 20 threads concurrentes
         }
@@ -112,9 +129,20 @@ class TransmissionScheduler:
     def start(self):
         """Iniciar el scheduler"""
         if self.scheduler and not self.scheduler.running:
-            self.scheduler.start()
-            # Cargar transmisiones programadas existentes al iniciar
-            self._load_existing_schedules()
+            try:
+                self.scheduler.start()
+                # Cargar transmisiones programadas existentes al iniciar
+                self._load_existing_schedules()
+            except Exception as e:
+                logging.error(f"Failed to start scheduler with persistent storage: {e}")
+                logging.info("Recreating scheduler with in-memory storage...")
+                # Recrear scheduler sin persistencia
+                self.scheduler = BackgroundScheduler(
+                    executors={'default': ThreadPoolExecutor(20)},
+                    job_defaults={'coalesce': False, 'max_instances': 1}
+                )
+                self.scheduler.start()
+                logging.info("Scheduler started successfully with in-memory storage")
     
     def shutdown(self):
         """Detener el scheduler"""
