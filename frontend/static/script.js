@@ -12,6 +12,7 @@ let projects = [];
 let currentDevice = null;
 let currentConnection = null;
 let currentProject = null;
+let currentView = null;
 let transmissionAPI = null;
 let realtimeMonitor = null;
 let visualizations = null;
@@ -2001,6 +2002,9 @@ function showView(target) {
         return;
     }
     el.classList.add('active');
+    
+    // Update current view (use the alias name, not the DOM ID)
+    currentView = target;
 }
 
 // Connection functions
